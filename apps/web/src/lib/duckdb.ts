@@ -1,6 +1,21 @@
 import * as duckdb from '@duckdb/duckdb-wasm'
+import duckdbMvpWasmUrl from '@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url'
+import duckdbEhWasmUrl from '@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url'
+import duckdbMvpWorkerUrl from '@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url'
+import duckdbEhWorkerUrl from '@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url'
 
 export const DUCKDB_H1B_TABLE = 'h1b_raw'
+
+const LOCAL_BUNDLES: duckdb.DuckDBBundles = {
+  mvp: {
+    mainModule: duckdbMvpWasmUrl,
+    mainWorker: duckdbMvpWorkerUrl,
+  },
+  eh: {
+    mainModule: duckdbEhWasmUrl,
+    mainWorker: duckdbEhWorkerUrl,
+  },
+}
 
 type QueryResult = {
   columns: string[]
@@ -17,8 +32,7 @@ class DuckDbEngine {
       return
     }
 
-    const jsDelivrBundles = duckdb.getJsDelivrBundles()
-    const bundle = await duckdb.selectBundle(jsDelivrBundles)
+    const bundle = await duckdb.selectBundle(LOCAL_BUNDLES)
     const worker = new Worker(bundle.mainWorker!)
     const logger = new duckdb.ConsoleLogger()
 
