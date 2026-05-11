@@ -7,6 +7,26 @@
 
 Natural language -> SQL (LLM) -> DuckDB-WASM -> table/chart visualization in the browser.
 
+## Quick Copy
+
+Minimal UI run:
+
+```sh
+npm run ui:min
+```
+
+Infra up from scratch (optional bucket and region args):
+
+```sh
+npm run infra:up -- [bucket-name] [aws-region]
+```
+
+Infra teardown:
+
+```sh
+npm run infra:down -- [bucket-name] [aws-region]
+```
+
 ## Monorepo Structure
 
 - `apps/web`: React + TypeScript frontend
