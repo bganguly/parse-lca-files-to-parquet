@@ -21,3 +21,4 @@ apps/web/public/data/parquet/
 *.njsproj
 *.sln
 *.sw?
+.infra/

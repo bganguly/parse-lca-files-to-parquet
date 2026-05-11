@@ -21,42 +21,41 @@ Natural language -> SQL (LLM) -> DuckDB-WASM -> table/chart visualization in the
 - Query history sidebar
 - Uses official U.S. government disclosure sources (DOL and USCIS)
 
-## Quick Start
+## Minimal UI Run
 
-1. Install dependencies
-
-```bash
-npm install
-```
-
-2. Fetch official datasets and build normalized CSV
+If you only want to see the UI with real official data, run one command:
 
 ```bash
-python3 -m pip install --user openpyxl
-npm run fetch:official-data
+npm run ui:min
 ```
 
-This command downloads official files from DOL and USCIS and converts DOL's XLSX into a normalized CSV for the app.
+This will:
 
-3. Build parquet files (single + year partitioned)
+- install required Python and npm dependencies,
+- fetch official DOL/USCIS sources,
+- build parquet files,
+- start the dev server.
+
+Open the local URL shown in terminal (usually `http://localhost:5173`).
+
+## Infra From Scratch (S3 Parquet)
+
+Bring everything up from scratch (data fetch + parquet build + S3 bucket + upload):
 
 ```bash
-python3 -m pip install --user pyarrow
-npm run build:parquet
+npm run infra:up -- [bucket-name] [aws-region]
 ```
 
-This generates:
+- `bucket-name` is optional. If omitted, a unique bucket name is generated.
+- `aws-region` defaults to `us-east-1`.
 
-- `apps/web/public/data/parquet/dol_lca_h1b_fy2026_q1.parquet`
-- `apps/web/public/data/parquet/dol_lca_h1b_fy2026_q1_partitioned/year=YYYY/part-*.parquet`
-
-4. Start app
+Tear everything down (delete objects + bucket):
 
 ```bash
-npm run dev
+npm run infra:down -- [bucket-name] [aws-region]
 ```
 
-5. Open the shown local URL (usually `http://localhost:5173`).
+- If no args are given, it uses `.infra/state.env` from the last `infra:up` run.
 
 ## S3 + CloudFront Deployment (Parquet)
 
