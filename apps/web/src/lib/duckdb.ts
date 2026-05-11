@@ -27,7 +27,7 @@ class DuckDbEngine {
     this.conn = await this.db.connect()
   }
 
-  async loadCsvToH1bTable(sourcePath: string) {
+  async loadDatasetToH1bTable(sourcePath: string) {
     await this.init()
 
     if (!this.conn) {
@@ -39,11 +39,16 @@ class DuckDbEngine {
     }
 
     const escaped = sourcePath.replace(/'/g, "''")
+    const isParquet = /\.parquet($|\?)/i.test(sourcePath)
+    const isParquetPartitionPath = /year=\*/i.test(sourcePath)
+    const reader = isParquet || isParquetPartitionPath
+      ? `read_parquet('${escaped}')`
+      : `read_csv_auto('${escaped}', HEADER = TRUE, SAMPLE_SIZE = -1)`
 
     await this.conn.query(`
       CREATE OR REPLACE TABLE ${DUCKDB_H1B_TABLE} AS
       SELECT *
-      FROM read_csv_auto('${escaped}', HEADER = TRUE, SAMPLE_SIZE = -1)
+      FROM ${reader}
     `)
 
     this.loadedSource = sourcePath

@@ -39,7 +39,7 @@ const STARTER_QUERIES = [
 
 function App() {
   const [query, setQuery] = useState('top employers by H1B approvals in 2023')
-  const [datasetPath, setDatasetPath] = useState('/data/dol_lca_h1b_fy2026_q1.csv')
+  const [datasetPath, setDatasetPath] = useState('/data/parquet/dol_lca_h1b_fy2026_q1.parquet')
   const [llmApiKey, setLlmApiKey] = useState('')
   const [llmModel, setLlmModel] = useState('gpt-4o-mini')
   const [isRunning, setIsRunning] = useState(false)
@@ -93,7 +93,7 @@ function App() {
 
       validateGeneratedSql(generatedSql)
 
-      await duckDbEngine.loadCsvToH1bTable(datasetPath)
+      await duckDbEngine.loadDatasetToH1bTable(datasetPath)
       const result = await duckDbEngine.executeSql(generatedSql)
 
       const run: QueryRun = {
@@ -132,7 +132,7 @@ function App() {
           <p className="eyebrow">No-DB Analytical Prototype</p>
           <h1>H1B Natural Language Query System</h1>
           <p className="subtitle">
-            Natural language to SQL to DuckDB execution on raw CSV data, then structured
+            Natural language to SQL to DuckDB execution on raw CSV/Parquet data, then structured
             table and chart output.
           </p>
         </div>
@@ -146,7 +146,7 @@ function App() {
             <input
               value={datasetPath}
               onChange={(event) => setDatasetPath(event.target.value)}
-              placeholder="/data/dol_lca_h1b_fy2026_q1.csv"
+              placeholder="/data/parquet/dol_lca_h1b_fy2026_q1.parquet"
             />
           </label>
           <label>
