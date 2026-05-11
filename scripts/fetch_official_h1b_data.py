@@ -64,7 +64,7 @@ def parse_year(row: dict) -> int:
 def convert_dol_xlsx_to_normalized_csv(
     source_xlsx: pathlib.Path,
     output_csv: pathlib.Path,
-    max_rows: int,
+    max_rows: int | None,
 ) -> int:
     workbook = load_workbook(filename=source_xlsx,
                              read_only=True, data_only=True)
@@ -113,7 +113,7 @@ def convert_dol_xlsx_to_normalized_csv(
                             work_location, wage, status, year])
             count += 1
 
-            if count >= max_rows:
+            if max_rows is not None and count >= max_rows:
                 break
 
     workbook.close()
@@ -122,7 +122,7 @@ def convert_dol_xlsx_to_normalized_csv(
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--max-rows", type=int, default=30000)
+    parser.add_argument("--max-rows", type=int, default=None)
     args = parser.parse_args()
 
     root = pathlib.Path(__file__).resolve().parents[1]

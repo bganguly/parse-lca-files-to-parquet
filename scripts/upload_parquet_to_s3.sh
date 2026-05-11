@@ -21,7 +21,7 @@ echo "Uploading parquet files to s3://$BUCKET/data/parquet ..."
 aws s3 sync "$PARQUET_DIR" "s3://$BUCKET/data/parquet" \
   --region "$REGION" \
   --delete \
-  --cache-control "public,max-age=31536000,immutable"
+  --cache-control "public,max-age=300,must-revalidate"
 
 echo "Upload complete."
 echo "Single parquet URL: https://$BUCKET.s3.$REGION.amazonaws.com/data/parquet/dol_lca_h1b_fy2026_q1.parquet"

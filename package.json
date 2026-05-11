@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "ui:min": "bash scripts/ui_minimal.sh",
-    "fetch:official-data": "python3 scripts/fetch_official_h1b_data.py --max-rows 30000",
+    "fetch:official-data": "python3 scripts/fetch_official_h1b_data.py",
     "build:parquet": "python3 scripts/build_parquet_from_official_csv.py",
     "upload:s3:parquet": "bash scripts/upload_parquet_to_s3.sh",
     "create:cloudfront": "bash scripts/create_cloudfront_for_s3.sh",
