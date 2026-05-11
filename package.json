@@ -6,6 +6,7 @@
     "apps/*"
   ],
   "scripts": {
+    "fetch:official-data": "python3 scripts/fetch_official_h1b_data.py --max-rows 30000",
     "dev": "npm run dev -w web",
     "build": "npm run build -w web",
     "lint": "npm run lint -w web"

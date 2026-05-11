@@ -39,7 +39,7 @@ const STARTER_QUERIES = [
 
 function App() {
   const [query, setQuery] = useState('top employers by H1B approvals in 2023')
-  const [datasetPath, setDatasetPath] = useState('/data/h1b_sample.csv')
+  const [datasetPath, setDatasetPath] = useState('/data/dol_lca_h1b_fy2026_q1.csv')
   const [llmApiKey, setLlmApiKey] = useState('')
   const [llmModel, setLlmModel] = useState('gpt-4o-mini')
   const [isRunning, setIsRunning] = useState(false)
@@ -146,7 +146,7 @@ function App() {
             <input
               value={datasetPath}
               onChange={(event) => setDatasetPath(event.target.value)}
-              placeholder="/data/h1b_sample.csv or https://..."
+              placeholder="/data/dol_lca_h1b_fy2026_q1.csv"
             />
           </label>
           <label>

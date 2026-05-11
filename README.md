@@ -19,7 +19,7 @@ Natural language -> SQL (LLM) -> DuckDB-WASM -> table/chart visualization in the
 - DuckDB query execution directly over raw CSV
 - Result table + automatic chart preview
 - Query history sidebar
-- Works with static local path (`/data/h1b_sample.csv`) or remote CSV URL
+- Uses official U.S. government disclosure sources (DOL and USCIS)
 
 ## Quick Start
 
@@ -29,13 +29,34 @@ Natural language -> SQL (LLM) -> DuckDB-WASM -> table/chart visualization in the
 npm install
 ```
 
-2. Start app
+2. Fetch official datasets and build normalized CSV
+
+```bash
+python3 -m pip install --user openpyxl
+npm run fetch:official-data
+```
+
+This command downloads official files from DOL and USCIS and converts DOL's XLSX into a normalized CSV for the app.
+
+3. Start app
 
 ```bash
 npm run dev
 ```
 
-3. Open the shown local URL (usually `http://localhost:5173`).
+4. Open the shown local URL (usually `http://localhost:5173`).
+
+## Official Data Sources Used
+
+- DOL LCA disclosure (salary, employer, job/location fields):
+	https://www.dol.gov/sites/dolgov/files/ETA/oflc/pdfs/LCA_Disclosure_Data_FY2026_Q1.xlsx
+- USCIS H-1B Employer Data Hub CSV (approval/denial trend source):
+	https://www.uscis.gov/sites/default/files/document/data/h1b_datahubexport-2023.csv
+
+The fetch script writes files to [apps/web/public/data](apps/web/public/data):
+
+- dol_lca_h1b_fy2026_q1.csv (normalized to app schema)
+- uscis_h1b_employer_data_hub_2023.csv (raw USCIS export)
 
 ## Dataset Schema
 
