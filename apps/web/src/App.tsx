@@ -37,9 +37,12 @@ const STARTER_QUERIES = [
   'average wage by job_title for certified cases',
 ]
 
+const DEFAULT_DATASET_URL =
+  'https://h1b-nlq-parquet-577479071532-20260511.s3.us-east-1.amazonaws.com/data/parquet/dol_lca_h1b_fy2026_q1.parquet'
+
 function App() {
   const [query, setQuery] = useState('top employers by H1B approvals in 2023')
-  const [datasetPath, setDatasetPath] = useState('/data/parquet/dol_lca_h1b_fy2026_q1.parquet')
+  const [datasetPath, setDatasetPath] = useState(DEFAULT_DATASET_URL)
   const [llmApiKey, setLlmApiKey] = useState('')
   const [llmModel, setLlmModel] = useState('gpt-4o-mini')
   const [isRunning, setIsRunning] = useState(false)
@@ -108,7 +111,11 @@ function App() {
       setLatestRun(run)
       setHistory((previous) => [run, ...previous].slice(0, 25))
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to run query.'
+      const rawMessage = error instanceof Error ? error.message : 'Failed to run query.'
+      const missingFilesPattern = /No files found that match the pattern/i
+      const message = missingFilesPattern.test(rawMessage)
+        ? `${rawMessage}\nHint: run "npm run ui:min" to generate local parquet files, or use an S3 parquet URL.`
+        : rawMessage
       const run: QueryRun = {
         id: crypto.randomUUID(),
         question: query,
@@ -146,7 +153,7 @@ function App() {
             <input
               value={datasetPath}
               onChange={(event) => setDatasetPath(event.target.value)}
-              placeholder="/data/parquet/dol_lca_h1b_fy2026_q1.parquet"
+              placeholder={DEFAULT_DATASET_URL}
             />
           </label>
           <label>
