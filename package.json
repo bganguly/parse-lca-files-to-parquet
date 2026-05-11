@@ -1,0 +1,13 @@
+{
+  "name": "h1b-nl-query-system",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w web",
+    "build": "npm run build -w web",
+    "lint": "npm run lint -w web"
+  }
+}
