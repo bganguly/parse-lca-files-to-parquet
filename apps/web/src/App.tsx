@@ -175,7 +175,14 @@ function App() {
           </label>
           <div className="suggestions">
             {STARTER_QUERIES.map((suggestion) => (
-              <button key={suggestion} type="button" onClick={() => setQuery(suggestion)}>
+              <button
+                key={suggestion}
+                type="button"
+                onClick={() => {
+                  setQuery(suggestion)
+                  setLatestRun(null)
+                }}
+              >
                 {suggestion}
               </button>
             ))}
