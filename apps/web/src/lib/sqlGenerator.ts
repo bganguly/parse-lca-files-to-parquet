@@ -16,6 +16,31 @@ function parseStartsWithLetter(queryLower: string) {
   return match[1].toUpperCase()
 }
 
+function applyStartsWithEmployerConstraint(sql: string, queryLower: string) {
+  const startsWithLetter = parseStartsWithLetter(queryLower)
+
+  if (!startsWithLetter) {
+    return sql
+  }
+
+  if (/employer\s+i?like\s+'[a-z]%'/i.test(sql)) {
+    return sql
+  }
+
+  const constraint = ` employer ILIKE '${startsWithLetter}%'`
+  const boundaryRegex = /\b(group\s+by|order\s+by|limit)\b/i
+  const boundaryMatch = boundaryRegex.exec(sql)
+  const boundaryIndex = boundaryMatch?.index ?? sql.length
+  const head = sql.slice(0, boundaryIndex)
+  const tail = sql.slice(boundaryIndex)
+
+  if (/\bwhere\b/i.test(head)) {
+    return `${head} AND${constraint} ${tail}`.trim()
+  }
+
+  return `${head} WHERE${constraint} ${tail}`.trim()
+}
+
 function deterministicFallbackSql(query: string) {
   const q = query.toLowerCase()
   const yearMatch = q.match(/(20\d{2})/)
@@ -65,13 +90,15 @@ LIMIT 20`
 
 export async function generateSqlFromNl(input: SqlGenerationInput) {
   const trimmedQuery = input.query.trim()
+  const queryLower = trimmedQuery.toLowerCase()
 
   if (!trimmedQuery) {
     throw new Error('Query cannot be empty.')
   }
 
   if (!input.apiKey) {
-    return deterministicFallbackSql(trimmedQuery)
+    const fallbackSql = deterministicFallbackSql(trimmedQuery)
+    return applyStartsWithEmployerConstraint(fallbackSql, queryLower)
   }
 
   const response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
@@ -110,5 +137,6 @@ export async function generateSqlFromNl(input: SqlGenerationInput) {
     throw new Error('LLM did not return SQL output.')
   }
 
-  return content.replace(/```sql|```/gi, '').trim()
+  const cleanedSql = content.replace(/```sql|```/gi, '').trim()
+  return applyStartsWithEmployerConstraint(cleanedSql, queryLower)
 }
