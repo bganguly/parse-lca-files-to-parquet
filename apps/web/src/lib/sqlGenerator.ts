@@ -7,27 +7,40 @@ type SqlGenerationInput = {
 
 const OPENAI_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions'
 
-function parseStartsWithLetter(queryLower: string) {
-  const match = queryLower.match(/starting\s+with\s+([a-z])/i)
+function parseStartsWithPrefix(queryLower: string) {
+  const quotedMatch = queryLower.match(/starting\s+with\s+["']([a-z0-9 _.-]+)["']/i)
+  const plainMatch = queryLower.match(/starting\s+with\s+([a-z0-9_.-]+)/i)
+  const match = quotedMatch ?? plainMatch
+
   if (!match) {
     return null
   }
 
-  return match[1].toUpperCase()
+  return match[1].trim()
 }
 
 function applyStartsWithEmployerConstraint(sql: string, queryLower: string) {
-  const startsWithLetter = parseStartsWithLetter(queryLower)
+  const startsWithPrefix = parseStartsWithPrefix(queryLower)
 
-  if (!startsWithLetter) {
+  if (!startsWithPrefix) {
     return sql
   }
 
-  if (/employer\s+i?like\s+'[a-z]%'/i.test(sql)) {
-    return sql
+  const normalizedPrefix = startsWithPrefix.toLowerCase()
+  const existingPrefixRegex = /employer\s+i?like\s+'([^']*)%'/i
+  const existingPrefixMatch = sql.match(existingPrefixRegex)
+
+  if (existingPrefixMatch) {
+    const existingPrefix = existingPrefixMatch[1].trim().toLowerCase()
+
+    if (existingPrefix === normalizedPrefix) {
+      return sql
+    }
+
+    return sql.replace(existingPrefixRegex, `employer ILIKE '${normalizedPrefix}%'`)
   }
 
-  const constraint = ` employer ILIKE '${startsWithLetter}%'`
+  const constraint = ` employer ILIKE '${normalizedPrefix}%'`
   const boundaryRegex = /\b(group\s+by|order\s+by|limit)\b/i
   const boundaryMatch = boundaryRegex.exec(sql)
   const boundaryIndex = boundaryMatch?.index ?? sql.length
@@ -45,8 +58,10 @@ function deterministicFallbackSql(query: string) {
   const q = query.toLowerCase()
   const yearMatch = q.match(/(20\d{2})/)
   const yearFilter = yearMatch ? ` AND year = ${yearMatch[1]}` : ''
-  const startsWithLetter = parseStartsWithLetter(q)
-  const employerPrefixFilter = startsWithLetter ? ` AND employer ILIKE '${startsWithLetter}%'` : ''
+  const startsWithPrefix = parseStartsWithPrefix(q)
+  const employerPrefixFilter = startsWithPrefix
+    ? ` AND employer ILIKE '${startsWithPrefix.toLowerCase()}%'`
+    : ''
 
   if (q.includes('top') && q.includes('employer') && q.includes('approval')) {
     return `SELECT employer, COUNT(*) AS approvals
