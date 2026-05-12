@@ -54,6 +54,18 @@ function applyStartsWithEmployerConstraint(sql: string, queryLower: string) {
   return `${head} WHERE${constraint} ${tail}`.trim()
 }
 
+function normalizeEmployerEquality(sql: string) {
+  return sql.replace(/\bemployer\s*=\s*'([^']+)'/gi, (_match, employerValue: string) => {
+    const normalized = employerValue.trim().replace(/'/g, "''")
+
+    if (!normalized) {
+      return "employer = ''"
+    }
+
+    return `employer ILIKE '%${normalized}%'`
+  })
+}
+
 function deterministicFallbackSql(query: string) {
   const q = query.toLowerCase()
   const yearMatch = q.match(/(20\d{2})/)
@@ -113,7 +125,7 @@ export async function generateSqlFromNl(input: SqlGenerationInput) {
 
   if (!input.apiKey) {
     const fallbackSql = deterministicFallbackSql(trimmedQuery)
-    return applyStartsWithEmployerConstraint(fallbackSql, queryLower)
+    return applyStartsWithEmployerConstraint(normalizeEmployerEquality(fallbackSql), queryLower)
   }
 
   const response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
@@ -153,5 +165,5 @@ export async function generateSqlFromNl(input: SqlGenerationInput) {
   }
 
   const cleanedSql = content.replace(/```sql|```/gi, '').trim()
-  return applyStartsWithEmployerConstraint(cleanedSql, queryLower)
+  return applyStartsWithEmployerConstraint(normalizeEmployerEquality(cleanedSql), queryLower)
 }
