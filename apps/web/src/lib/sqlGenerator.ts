@@ -89,6 +89,25 @@ function isTopEmployersApplicationsIntent(queryLower: string) {
   return hasTop && hasEmployer && hasApplications && !hasApprovals
 }
 
+function isCountIntent(queryLower: string) {
+  const asksForCount = /\b(how\s+many|count|number\s+of|total)\b/i.test(queryLower)
+  const asksAboutH1b = /\b(h-?1b|hi1b|h1b|lca|application|applications|filing|filings)\b/i.test(
+    queryLower,
+  )
+
+  return asksForCount && asksAboutH1b
+}
+
+function buildCountIntentSql(queryLower: string) {
+  const yearFilter = extractCalendarYearFilter(queryLower)
+  const fiscalFilter = extractFiscalFilter(queryLower)
+  const employerPrefixFilter = extractEmployerPrefixFilter(queryLower)
+
+  return `SELECT COUNT(*) AS total_h1b_records
+FROM h1b_raw
+WHERE 1=1${yearFilter}${fiscalFilter}${employerPrefixFilter}`
+}
+
 function buildTopEmployersApplicationsSql(queryLower: string) {
   const requestedLimit = parseRequestedLimit(queryLower) ?? 10
   const yearFilter = extractCalendarYearFilter(queryLower)
@@ -234,11 +253,23 @@ function applyTopEmployersApplicationsConstraint(sql: string, queryLower: string
   return buildTopEmployersApplicationsSql(queryLower)
 }
 
+function applyCountIntentConstraint(sql: string, queryLower: string) {
+  if (!isCountIntent(queryLower)) {
+    return sql
+  }
+
+  return buildCountIntentSql(queryLower)
+}
+
 function deterministicFallbackSql(query: string) {
   const q = query.toLowerCase()
   const yearFilter = extractCalendarYearFilter(q)
   const fiscalFilter = extractFiscalFilter(q)
   const employerPrefixFilter = extractEmployerPrefixFilter(q)
+
+  if (isCountIntent(q)) {
+    return buildCountIntentSql(q)
+  }
 
   if (isTopEmployersApplicationsIntent(q)) {
     return buildTopEmployersApplicationsSql(q)
@@ -296,9 +327,12 @@ export async function generateSqlFromNl(input: SqlGenerationInput) {
   if (!input.apiKey) {
     const fallbackSql = deterministicFallbackSql(trimmedQuery)
     return applyStartsWithEmployerConstraint(
-      applyTopEmployersApplicationsConstraint(
-        applyRequestedLimit(
-          applyFiscalPeriodConstraint(normalizeEmployerEquality(fallbackSql), queryLower),
+      applyCountIntentConstraint(
+        applyTopEmployersApplicationsConstraint(
+          applyRequestedLimit(
+            applyFiscalPeriodConstraint(normalizeEmployerEquality(fallbackSql), queryLower),
+            queryLower,
+          ),
           queryLower,
         ),
         queryLower,
@@ -345,9 +379,12 @@ export async function generateSqlFromNl(input: SqlGenerationInput) {
 
   const cleanedSql = content.replace(/```sql|```/gi, '').trim()
   return applyStartsWithEmployerConstraint(
-    applyTopEmployersApplicationsConstraint(
-      applyRequestedLimit(
-        applyFiscalPeriodConstraint(normalizeEmployerEquality(cleanedSql), queryLower),
+    applyCountIntentConstraint(
+      applyTopEmployersApplicationsConstraint(
+        applyRequestedLimit(
+          applyFiscalPeriodConstraint(normalizeEmployerEquality(cleanedSql), queryLower),
+          queryLower,
+        ),
         queryLower,
       ),
       queryLower,
