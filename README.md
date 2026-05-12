@@ -49,7 +49,6 @@ This will:
 - install required Python and npm dependencies,
 - fetch official DOL/USCIS sources,
 - build parquet files,
-- send parquet files to s3,
 - start the dev server.
 
 Open the local URL shown in terminal (usually [http://localhost:5173](http://localhost:5173)).
@@ -91,17 +90,17 @@ For development, you can use S3 URLs directly. CloudFront is best added before p
 
 ## Official Data Sources Used
 
-- DOL LCA disclosure (salary, employer, job/location fields):
-	https://www.dol.gov/sites/dolgov/files/ETA/oflc/pdfs/LCA_Disclosure_Data_FY2026_Q1.xlsx
+- DOL LCA disclosure quarterly XLSX files from FY2020 Q1 through FY2026 Q1 (salary, employer, job/location fields):
+	https://www.dol.gov/sites/dolgov/files/ETA/oflc/pdfs/LCA_Disclosure_Data_FY{FY}_Q{Q}.xlsx
 - USCIS H-1B Employer Data Hub CSV (approval/denial trend source):
 	https://www.uscis.gov/sites/default/files/document/data/h1b_datahubexport-2023.csv
 
 The fetch script writes files to [apps/web/public/data](apps/web/public/data):
 
-- dol_lca_h1b_fy2026_q1.csv (normalized to app schema)
+- dol_lca_h1b_fy2020_q1_to_fy2026_q1.csv (normalized combined dataset)
 - uscis_h1b_employer_data_hub_2023.csv (raw USCIS export)
-- parquet/dol_lca_h1b_fy2026_q1.parquet (optimized single-file analytics)
-- parquet/dol_lca_h1b_fy2026_q1_partitioned/ (year-partitioned parquet layout)
+- parquet/dol_lca_h1b_fy2020_q1_to_fy2026_q1.parquet (optimized single-file analytics)
+- parquet/dol_lca_h1b_fy2020_q1_to_fy2026_q1_partitioned/ (year-partitioned parquet layout)
 
 ## Dataset Schema
 

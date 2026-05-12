@@ -84,4 +84,4 @@ EOF
 
 echo "[infra:up] done"
 echo "[infra:up] state file: $STATE_FILE"
-echo "[infra:up] S3 parquet URL: https://$BUCKET.s3.$REGION.amazonaws.com/data/parquet/dol_lca_h1b_fy2026_q1.parquet"
+echo "[infra:up] S3 parquet URL: https://$BUCKET.s3.$REGION.amazonaws.com/data/parquet/dol_lca_h1b_fy2020_q1_to_fy2026_q1.parquet"

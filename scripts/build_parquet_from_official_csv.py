@@ -33,10 +33,11 @@ def build_parquet(csv_path: pathlib.Path, output_dir: pathlib.Path, max_rows: in
     if max_rows is not None:
         table = table.slice(0, max_rows)
 
-    single_parquet = output_dir / "dol_lca_h1b_fy2026_q1.parquet"
+    dataset_stem = csv_path.stem
+    single_parquet = output_dir / f"{dataset_stem}.parquet"
     pq.write_table(table, single_parquet, compression="zstd")
 
-    partition_dir = output_dir / "dol_lca_h1b_fy2026_q1_partitioned"
+    partition_dir = output_dir / f"{dataset_stem}_partitioned"
     if partition_dir.exists():
         for child in sorted(partition_dir.rglob("*"), reverse=True):
             if child.is_file():
@@ -65,7 +66,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--csv",
-        default="apps/web/public/data/dol_lca_h1b_fy2026_q1.csv",
+        default="apps/web/public/data/dol_lca_h1b_fy2020_q1_to_fy2026_q1.csv",
         help="Path to normalized CSV input.",
     )
     parser.add_argument(
