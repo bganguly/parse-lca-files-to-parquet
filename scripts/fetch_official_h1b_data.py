@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 import argparse
 import csv
+import os
 import pathlib
 import re
 import subprocess
 from collections.abc import Iterator
+from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import ThreadPoolExecutor
 
 from openpyxl import load_workbook
@@ -190,6 +192,26 @@ def convert_dol_xlsx_to_normalized_csv(
     return count
 
 
+def normalize_quarter_to_temp_csv(
+    source_xlsx: pathlib.Path,
+    output_csv: pathlib.Path,
+    fallback_year: int,
+    fallback_quarter: int,
+    min_calendar_year: int,
+) -> int:
+    output_csv.parent.mkdir(parents=True, exist_ok=True)
+    with output_csv.open("w", newline="", encoding="utf-8") as output_handle:
+        return convert_dol_xlsx_to_normalized_csv(
+            source_xlsx=source_xlsx,
+            output_handle=output_handle,
+            write_header=False,
+            fallback_year=fallback_year,
+            fallback_quarter=fallback_quarter,
+            min_calendar_year=min_calendar_year,
+            max_rows=None,
+        )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--max-rows", type=int, default=None)
@@ -198,6 +220,7 @@ def main() -> None:
     parser.add_argument("--end-fy", type=int, default=2026)
     parser.add_argument("--end-quarter", type=int, default=1)
     parser.add_argument("--parallel-downloads", type=int, default=4)
+    parser.add_argument("--parallel-normalize", type=int, default=1)
     parser.add_argument("--min-calendar-year", type=int, default=2020)
     args = parser.parse_args()
 
@@ -209,8 +232,14 @@ def main() -> None:
         raise ValueError("start fiscal quarter must be <= end fiscal quarter")
     if args.parallel_downloads < 1:
         raise ValueError("--parallel-downloads must be >= 1")
+    if args.parallel_normalize < 1:
+        raise ValueError("--parallel-normalize must be >= 1")
     if args.min_calendar_year < 1900:
         raise ValueError("--min-calendar-year must be >= 1900")
+
+    if args.max_rows is not None and args.parallel_normalize > 1:
+        print("--max-rows is set; forcing sequential normalization for deterministic truncation.")
+        args.parallel_normalize = 1
 
     root = pathlib.Path(__file__).resolve().parents[1]
     data_dir = root / "apps" / "web" / "public" / "data"
@@ -247,30 +276,75 @@ def main() -> None:
         for future in futures:
             future.result()
 
-    total_rows = 0
-    output_written = False
+    temp_jobs: list[tuple[int, int, pathlib.Path, pathlib.Path]] = []
+    for fy, quarter, quarter_xlsx, _quarter_url in quarter_jobs:
+        temp_csv = source_dir / f"normalized_FY{fy}_Q{quarter}.csv"
+        temp_jobs.append((fy, quarter, quarter_xlsx, temp_csv))
 
-    dol_csv_path.parent.mkdir(parents=True, exist_ok=True)
-    with dol_csv_path.open("w", newline="", encoding="utf-8") as output_handle:
-        for index, (fy, quarter, quarter_xlsx, _quarter_url) in enumerate(quarter_jobs):
-
+    if args.parallel_normalize > 1:
+        cpu_count = os.cpu_count() or 1
+        max_workers = min(args.parallel_normalize, max(
+            cpu_count - 1, 1), len(temp_jobs))
+        print(
+            f"Normalizing {len(temp_jobs)} quarter files in parallel with workers={max_workers} (CPU count={cpu_count})..."
+        )
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+            futures = [
+                executor.submit(
+                    normalize_quarter_to_temp_csv,
+                    quarter_xlsx,
+                    temp_csv,
+                    fy,
+                    quarter,
+                    args.min_calendar_year,
+                )
+                for fy, quarter, quarter_xlsx, temp_csv in temp_jobs
+            ]
+            for future in futures:
+                future.result()
+    else:
+        for fy, quarter, quarter_xlsx, temp_csv in temp_jobs:
             print(f"Converting FY{fy} Q{quarter} to normalized rows...")
-            row_cap = None
-            if args.max_rows is not None:
-                remaining = max(args.max_rows - total_rows, 0)
-                row_cap = remaining
-            converted = convert_dol_xlsx_to_normalized_csv(
+            normalize_quarter_to_temp_csv(
                 source_xlsx=quarter_xlsx,
-                output_handle=output_handle,
-                write_header=(index == 0),
+                output_csv=temp_csv,
                 fallback_year=fy,
                 fallback_quarter=quarter,
                 min_calendar_year=args.min_calendar_year,
-                max_rows=row_cap,
             )
-            output_written = output_written or converted > 0
-            total_rows += converted
 
+    total_rows = 0
+    output_written = False
+    dol_csv_path.parent.mkdir(parents=True, exist_ok=True)
+    with dol_csv_path.open("w", newline="", encoding="utf-8") as output_handle:
+        writer = csv.writer(output_handle)
+        writer.writerow(
+            [
+                "employer",
+                "job_title",
+                "country",
+                "work_location",
+                "wage",
+                "status",
+                "year",
+                "fiscal_year",
+                "fiscal_quarter",
+            ]
+        )
+
+        for _fy, _quarter, quarter_xlsx, temp_csv in temp_jobs:
+            with temp_csv.open("r", newline="", encoding="utf-8") as temp_handle:
+                reader = csv.reader(temp_handle)
+                for row in reader:
+                    if args.max_rows is not None and total_rows >= args.max_rows:
+                        break
+                    writer.writerow(row)
+                    total_rows += 1
+
+            output_written = output_written or total_rows > 0
+
+            if temp_csv.exists():
+                temp_csv.unlink()
             if quarter_xlsx.exists():
                 quarter_xlsx.unlink()
 

@@ -102,10 +102,16 @@ The fetch script writes files to [apps/web/public/data](apps/web/public/data):
 - parquet/dol_lca_h1b_fy2020_q1_to_fy2026_q1.parquet (optimized single-file analytics)
 - parquet/dol_lca_h1b_fy2020_q1_to_fy2026_q1_partitioned/ (year-partitioned parquet layout)
 
-For faster network fetches, the script supports parallel quarter downloads:
+For faster ingest, the script supports parallel quarter downloads and parallel XLSX parsing/normalization:
 
 ```bash
-python3 scripts/fetch_official_h1b_data.py --parallel-downloads 6
+python3 scripts/fetch_official_h1b_data.py --parallel-downloads 6 --parallel-normalize 3
+```
+
+Recommended on older 16 GB Macs to reduce fan/thermal pressure while still speeding up end-to-end time:
+
+```bash
+python3 scripts/fetch_official_h1b_data.py --parallel-downloads 4 --parallel-normalize 2
 ```
 
 ## Dataset Schema
