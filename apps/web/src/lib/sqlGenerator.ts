@@ -37,6 +37,23 @@ function parseFiscalPeriod(queryLower: string): FiscalPeriod | null {
   return { fiscalYear, fiscalQuarter }
 }
 
+function parseRequestedLimit(queryLower: string): number | null {
+  const topMatch = queryLower.match(/\btop\s+(\d{1,4})\b/i)
+  const limitMatch = queryLower.match(/\blimit\s+(\d{1,4})\b/i)
+  const value = topMatch?.[1] ?? limitMatch?.[1]
+
+  if (!value) {
+    return null
+  }
+
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null
+  }
+
+  return Math.min(parsed, 1000)
+}
+
 function applyStartsWithEmployerConstraint(sql: string, queryLower: string) {
   const startsWithPrefix = parseStartsWithPrefix(queryLower)
 
@@ -140,6 +157,25 @@ function applyFiscalPeriodConstraint(sql: string, queryLower: string) {
   return `${head} WHERE${constraint} ${tail}`.trim()
 }
 
+function applyRequestedLimit(sql: string, queryLower: string) {
+  const requestedLimit = parseRequestedLimit(queryLower)
+
+  if (!requestedLimit) {
+    return sql
+  }
+
+  const limitRegex = /\blimit\s+\d+\b/i
+  if (limitRegex.test(sql)) {
+    return sql.replace(limitRegex, `LIMIT ${requestedLimit}`)
+  }
+
+  if (/\btop\b/i.test(queryLower)) {
+    return `${sql.trim()} LIMIT ${requestedLimit}`
+  }
+
+  return sql
+}
+
 function deterministicFallbackSql(query: string) {
   const q = query.toLowerCase()
   const fiscalPeriod = parseFiscalPeriod(q)
@@ -208,7 +244,10 @@ export async function generateSqlFromNl(input: SqlGenerationInput) {
   if (!input.apiKey) {
     const fallbackSql = deterministicFallbackSql(trimmedQuery)
     return applyStartsWithEmployerConstraint(
-      applyFiscalPeriodConstraint(normalizeEmployerEquality(fallbackSql), queryLower),
+      applyRequestedLimit(
+        applyFiscalPeriodConstraint(normalizeEmployerEquality(fallbackSql), queryLower),
+        queryLower,
+      ),
       queryLower,
     )
   }
@@ -251,7 +290,10 @@ export async function generateSqlFromNl(input: SqlGenerationInput) {
 
   const cleanedSql = content.replace(/```sql|```/gi, '').trim()
   return applyStartsWithEmployerConstraint(
-    applyFiscalPeriodConstraint(normalizeEmployerEquality(cleanedSql), queryLower),
+    applyRequestedLimit(
+      applyFiscalPeriodConstraint(normalizeEmployerEquality(cleanedSql), queryLower),
+      queryLower,
+    ),
     queryLower,
   )
 }
