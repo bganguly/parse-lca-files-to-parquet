@@ -28,15 +28,6 @@ def download_file(url: str, target: pathlib.Path) -> None:
     )
 
 
-def ensure_download(url: str, target: pathlib.Path, force_download: bool) -> None:
-    if not force_download and target.exists() and target.stat().st_size > 0:
-        print(f"Reusing cached source: {target.name}")
-        return
-
-    print(f"Downloading: {target.name}")
-    download_file(url, target)
-
-
 def as_text(value) -> str:
     if value is None:
         return ""
@@ -203,7 +194,6 @@ def main() -> None:
     parser.add_argument("--end-fy", type=int, default=2026)
     parser.add_argument("--end-quarter", type=int, default=1)
     parser.add_argument("--parallel-downloads", type=int, default=4)
-    parser.add_argument("--force-download", action="store_true")
     args = parser.parse_args()
 
     if args.start_quarter < 1 or args.start_quarter > 4:
@@ -240,10 +230,11 @@ def main() -> None:
         quarter_xlsx = source_dir / filename
         quarter_jobs.append((fy, quarter, quarter_xlsx, quarter_url))
 
-    print(f"Preparing {len(quarter_jobs)} DOL quarter files with parallel downloads={args.parallel_downloads}...")
+    print(
+        f"Downloading {len(quarter_jobs)} DOL quarter files with parallel downloads={args.parallel_downloads}...")
     with ThreadPoolExecutor(max_workers=args.parallel_downloads) as executor:
         futures = [
-            executor.submit(ensure_download, quarter_url, quarter_xlsx, args.force_download)
+            executor.submit(download_file, quarter_url, quarter_xlsx)
             for _, _, quarter_xlsx, quarter_url in quarter_jobs
         ]
         for future in futures:
@@ -272,6 +263,9 @@ def main() -> None:
             output_written = output_written or converted > 0
             total_rows += converted
 
+            if quarter_xlsx.exists():
+                quarter_xlsx.unlink()
+
             if args.max_rows is not None and total_rows >= args.max_rows:
                 break
 
@@ -283,6 +277,9 @@ def main() -> None:
     legacy_csv = data_dir / "dol_lca_h1b_fy2026_q1.csv"
     if legacy_csv.exists() and legacy_csv != dol_csv_path:
         legacy_csv.unlink()
+
+    if source_dir.exists() and not any(source_dir.iterdir()):
+        source_dir.rmdir()
 
     print("Done.")
     print(f"USCIS CSV: {uscis_csv_path}")

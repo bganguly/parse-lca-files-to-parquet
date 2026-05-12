@@ -102,12 +102,10 @@ The fetch script writes files to [apps/web/public/data](apps/web/public/data):
 - parquet/dol_lca_h1b_fy2020_q1_to_fy2026_q1.parquet (optimized single-file analytics)
 - parquet/dol_lca_h1b_fy2020_q1_to_fy2026_q1_partitioned/ (year-partitioned parquet layout)
 
-For faster repeated fetches, the script caches source XLSX files in [apps/web/public/data/sources](apps/web/public/data/sources) and reuses them.
-You can tune/override this behavior with:
+For faster network fetches, the script supports parallel quarter downloads:
 
 ```bash
 python3 scripts/fetch_official_h1b_data.py --parallel-downloads 6
-python3 scripts/fetch_official_h1b_data.py --force-download
 ```
 
 ## Dataset Schema

@@ -10,9 +10,11 @@ lerna-debug.log*
 apps/web/dist
 apps/web/dist-ssr
 *.local
-apps/web/public/data/*.xlsx
-apps/web/public/data/*.csv
+apps/web/public/data/**/*.xlsx
+apps/web/public/data/**/*.xls
+apps/web/public/data/**/*.csv
 apps/web/public/data/parquet/
+apps/web/public/data/sources/
 .vscode/*
 !.vscode/extensions.json
 .idea
