@@ -91,7 +91,7 @@ function isTopEmployersApplicationsIntent(queryLower: string) {
 
 function isCountIntent(queryLower: string) {
   const asksForCount = /\b(how\s+many|count|number\s+of|total)\b/i.test(queryLower)
-  const asksAboutH1b = /\b(h-?1b|hi1b|h1b|lca|application|applications|filing|filings)\b/i.test(
+  const asksAboutH1b = /\b(h-?1bs?|hi1bs?|h1bs?|lca|application|applications|filing|filings)\b/i.test(
     queryLower,
   )
 
