@@ -57,15 +57,36 @@ function App() {
     }
 
     const [firstColumn, ...restColumns] = result.columns
-    const numericColumn = restColumns.find((column) =>
+    const numericColumns = restColumns.filter((column) =>
       result.rows.every((row) => {
         const value = row[column]
         return typeof value === 'number' || (!Number.isNaN(Number(value)) && value !== null)
       }),
     )
 
+    const numericColumn =
+      numericColumns.find((column) => /count|total|approval|application|record|rate|avg|sum|wage/i.test(column)) ??
+      numericColumns[numericColumns.length - 1]
+
     if (!numericColumn) {
       return null
+    }
+
+    const hasFiscalYearQuarter =
+      result.columns.includes('fiscal_year') && result.columns.includes('fiscal_quarter')
+
+    if (hasFiscalYearQuarter) {
+      const chartRows = result.rows.map((row) => ({
+        ...row,
+        quarter_label: `FY${String(row.fiscal_year ?? '')} Q${String(row.fiscal_quarter ?? '')}`,
+      }))
+
+      return {
+        labelKey: 'quarter_label',
+        valueKey: numericColumn,
+        chartType: 'bar',
+        data: chartRows,
+      } as const
     }
 
     const isTimeSeries = /year|month|date/i.test(firstColumn)
@@ -74,6 +95,7 @@ function App() {
       labelKey: firstColumn,
       valueKey: numericColumn,
       chartType: isTimeSeries ? 'line' : 'bar',
+      data: result.rows,
     } as const
   }, [latestRun])
 
@@ -253,7 +275,7 @@ function App() {
                     <h3>Chart Preview</h3>
                     <ResponsiveContainer width="100%" height={300}>
                       {chartConfig.chartType === 'line' ? (
-                        <LineChart data={result.rows}>
+                        <LineChart data={chartConfig.data}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey={chartConfig.labelKey} />
                           <YAxis />
@@ -267,7 +289,7 @@ function App() {
                           />
                         </LineChart>
                       ) : (
-                        <BarChart data={result.rows}>
+                        <BarChart data={chartConfig.data}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey={chartConfig.labelKey} />
                           <YAxis />
