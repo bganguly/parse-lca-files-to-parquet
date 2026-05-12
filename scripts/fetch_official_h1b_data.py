@@ -5,6 +5,7 @@ import pathlib
 import re
 import subprocess
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 
 from openpyxl import load_workbook
 
@@ -25,6 +26,15 @@ def download_file(url: str, target: pathlib.Path) -> None:
         ],
         check=True,
     )
+
+
+def ensure_download(url: str, target: pathlib.Path, force_download: bool) -> None:
+    if not force_download and target.exists() and target.stat().st_size > 0:
+        print(f"Reusing cached source: {target.name}")
+        return
+
+    print(f"Downloading: {target.name}")
+    download_file(url, target)
 
 
 def as_text(value) -> str:
@@ -192,6 +202,8 @@ def main() -> None:
     parser.add_argument("--start-quarter", type=int, default=1)
     parser.add_argument("--end-fy", type=int, default=2026)
     parser.add_argument("--end-quarter", type=int, default=1)
+    parser.add_argument("--parallel-downloads", type=int, default=4)
+    parser.add_argument("--force-download", action="store_true")
     args = parser.parse_args()
 
     if args.start_quarter < 1 or args.start_quarter > 4:
@@ -200,6 +212,8 @@ def main() -> None:
         raise ValueError("--end-quarter must be between 1 and 4")
     if (args.start_fy, args.start_quarter) > (args.end_fy, args.end_quarter):
         raise ValueError("start fiscal quarter must be <= end fiscal quarter")
+    if args.parallel_downloads < 1:
+        raise ValueError("--parallel-downloads must be >= 1")
 
     root = pathlib.Path(__file__).resolve().parents[1]
     data_dir = root / "apps" / "web" / "public" / "data"
@@ -219,20 +233,28 @@ def main() -> None:
                              args.end_fy, args.end_quarter)
     )
 
+    quarter_jobs: list[tuple[int, int, pathlib.Path, str]] = []
+    for fy, quarter in fiscal_quarters:
+        filename = f"LCA_Disclosure_Data_FY{fy}_Q{quarter}.xlsx"
+        quarter_url = DOL_LCA_XLSX_URL_TEMPLATE.format(fy=fy, quarter=quarter)
+        quarter_xlsx = source_dir / filename
+        quarter_jobs.append((fy, quarter, quarter_xlsx, quarter_url))
+
+    print(f"Preparing {len(quarter_jobs)} DOL quarter files with parallel downloads={args.parallel_downloads}...")
+    with ThreadPoolExecutor(max_workers=args.parallel_downloads) as executor:
+        futures = [
+            executor.submit(ensure_download, quarter_url, quarter_xlsx, args.force_download)
+            for _, _, quarter_xlsx, quarter_url in quarter_jobs
+        ]
+        for future in futures:
+            future.result()
+
     total_rows = 0
     output_written = False
 
     dol_csv_path.parent.mkdir(parents=True, exist_ok=True)
     with dol_csv_path.open("w", newline="", encoding="utf-8") as output_handle:
-        for index, (fy, quarter) in enumerate(fiscal_quarters):
-            filename = f"LCA_Disclosure_Data_FY{fy}_Q{quarter}.xlsx"
-            quarter_url = DOL_LCA_XLSX_URL_TEMPLATE.format(
-                fy=fy, quarter=quarter)
-            quarter_xlsx = source_dir / filename
-
-            print(
-                f"Downloading DOL LCA disclosure XLSX for FY{fy} Q{quarter}...")
-            download_file(quarter_url, quarter_xlsx)
+        for index, (fy, quarter, quarter_xlsx, _quarter_url) in enumerate(quarter_jobs):
 
             print(f"Converting FY{fy} Q{quarter} to normalized rows...")
             row_cap = None
@@ -249,9 +271,6 @@ def main() -> None:
             )
             output_written = output_written or converted > 0
             total_rows += converted
-
-            if quarter_xlsx.exists():
-                quarter_xlsx.unlink()
 
             if args.max_rows is not None and total_rows >= args.max_rows:
                 break
