@@ -29,6 +29,7 @@ Rules:
 - Never use INSERT, UPDATE, DELETE, DROP, ALTER, CREATE.
 - Always return a SELECT query.
 - If the user asks for approvals, use status LIKE 'Certified%'.
+- If the user asks for applications/filings, count all rows (COUNT(*)) and do not add a status filter unless user explicitly asks.
 - If the user asks for denials, use status = 'Denied'.
 - If the user says "starting with X", use ILIKE 'X%' on the relevant text column.
 - If the user asks for FY/Fiscal periods (example: FY2026 Q1), filter on fiscal_year and fiscal_quarter.
