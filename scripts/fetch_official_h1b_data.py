@@ -107,6 +107,7 @@ def convert_dol_xlsx_to_normalized_csv(
     write_header: bool,
     fallback_year: int,
     fallback_quarter: int,
+    min_calendar_year: int,
     max_rows: int | None,
 ) -> int:
     workbook = load_workbook(filename=source_xlsx,
@@ -164,6 +165,9 @@ def convert_dol_xlsx_to_normalized_csv(
         )
         year = parse_year(row, fallback_year)
 
+        if year < min_calendar_year:
+            continue
+
         writer.writerow(
             [
                 employer,
@@ -194,6 +198,7 @@ def main() -> None:
     parser.add_argument("--end-fy", type=int, default=2026)
     parser.add_argument("--end-quarter", type=int, default=1)
     parser.add_argument("--parallel-downloads", type=int, default=4)
+    parser.add_argument("--min-calendar-year", type=int, default=2020)
     args = parser.parse_args()
 
     if args.start_quarter < 1 or args.start_quarter > 4:
@@ -204,6 +209,8 @@ def main() -> None:
         raise ValueError("start fiscal quarter must be <= end fiscal quarter")
     if args.parallel_downloads < 1:
         raise ValueError("--parallel-downloads must be >= 1")
+    if args.min_calendar_year < 1900:
+        raise ValueError("--min-calendar-year must be >= 1900")
 
     root = pathlib.Path(__file__).resolve().parents[1]
     data_dir = root / "apps" / "web" / "public" / "data"
@@ -258,6 +265,7 @@ def main() -> None:
                 write_header=(index == 0),
                 fallback_year=fy,
                 fallback_quarter=quarter,
+                min_calendar_year=args.min_calendar_year,
                 max_rows=row_cap,
             )
             output_written = output_written or converted > 0
@@ -285,6 +293,7 @@ def main() -> None:
     print(f"USCIS CSV: {uscis_csv_path}")
     print(
         f"DOL fiscal quarter range: FY{args.start_fy} Q{args.start_quarter} -> FY{args.end_fy} Q{args.end_quarter}")
+    print(f"Minimum included calendar year: {args.min_calendar_year}")
     print(f"DOL normalized CSV rows: {total_rows}")
     print(f"DOL normalized CSV: {dol_csv_path}")
 
