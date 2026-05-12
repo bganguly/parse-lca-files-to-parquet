@@ -108,6 +108,16 @@ function isCountsByQuarterIntent(queryLower: string) {
   return asksByQuarter && asksAboutH1b && asksForCount
 }
 
+function isCountsByYearIntent(queryLower: string) {
+  const asksByYear = /\b(by|per)\s+year\b|\byearly\b/i.test(queryLower)
+  const asksAboutH1b = /\b(h-?1bs?|hi1bs?|h1bs?|lca|application|applications|filing|filings)\b/i.test(
+    queryLower,
+  )
+  const asksForCount = /\b(count|counts|how\s+many|number\s+of|total|list|show)\b/i.test(queryLower)
+
+  return asksByYear && asksAboutH1b && asksForCount
+}
+
 function extractYearOrFiscalFilter(queryLower: string) {
   const fiscalPeriod = parseFiscalPeriod(queryLower)
   if (fiscalPeriod) {
@@ -137,6 +147,27 @@ FROM h1b_raw
 WHERE 1=1${yearOrFiscalFilter}${fiscalFilter}
 GROUP BY fiscal_year, fiscal_quarter
 ORDER BY fiscal_year, fiscal_quarter`
+}
+
+function buildCountsByYearSql(queryLower: string) {
+  const fiscalPeriod = parseFiscalPeriod(queryLower)
+
+  if (fiscalPeriod) {
+    return `SELECT fiscal_year AS year, COUNT(*) AS total_h1b_records
+FROM h1b_raw
+WHERE fiscal_year = ${fiscalPeriod.fiscalYear}${
+      fiscalPeriod.fiscalQuarter !== undefined
+        ? ` AND fiscal_quarter = ${fiscalPeriod.fiscalQuarter}`
+        : ''
+    }
+GROUP BY fiscal_year
+ORDER BY fiscal_year`
+  }
+
+  return `SELECT year, COUNT(*) AS total_h1b_records
+FROM h1b_raw
+GROUP BY year
+ORDER BY year`
 }
 
 function buildTopEmployersApplicationsSql(queryLower: string) {
@@ -300,11 +331,23 @@ function applyCountsByQuarterConstraint(sql: string, queryLower: string) {
   return buildCountsByQuarterSql(queryLower)
 }
 
+function applyCountsByYearConstraint(sql: string, queryLower: string) {
+  if (!isCountsByYearIntent(queryLower)) {
+    return sql
+  }
+
+  return buildCountsByYearSql(queryLower)
+}
+
 function deterministicFallbackSql(query: string) {
   const q = query.toLowerCase()
   const yearFilter = extractCalendarYearFilter(q)
   const fiscalFilter = extractFiscalFilter(q)
   const employerPrefixFilter = extractEmployerPrefixFilter(q)
+
+  if (isCountsByYearIntent(q)) {
+    return buildCountsByYearSql(q)
+  }
 
   if (isCountsByQuarterIntent(q)) {
     return buildCountsByQuarterSql(q)
@@ -370,11 +413,14 @@ export async function generateSqlFromNl(input: SqlGenerationInput) {
   if (!input.apiKey) {
     const fallbackSql = deterministicFallbackSql(trimmedQuery)
     return applyStartsWithEmployerConstraint(
-      applyCountsByQuarterConstraint(
-        applyCountIntentConstraint(
-          applyTopEmployersApplicationsConstraint(
-            applyRequestedLimit(
-              applyFiscalPeriodConstraint(normalizeEmployerEquality(fallbackSql), queryLower),
+      applyCountsByYearConstraint(
+        applyCountsByQuarterConstraint(
+          applyCountIntentConstraint(
+            applyTopEmployersApplicationsConstraint(
+              applyRequestedLimit(
+                applyFiscalPeriodConstraint(normalizeEmployerEquality(fallbackSql), queryLower),
+                queryLower,
+              ),
               queryLower,
             ),
             queryLower,
@@ -425,11 +471,14 @@ export async function generateSqlFromNl(input: SqlGenerationInput) {
 
   const cleanedSql = content.replace(/```sql|```/gi, '').trim()
   return applyStartsWithEmployerConstraint(
-    applyCountsByQuarterConstraint(
-      applyCountIntentConstraint(
-        applyTopEmployersApplicationsConstraint(
-          applyRequestedLimit(
-            applyFiscalPeriodConstraint(normalizeEmployerEquality(cleanedSql), queryLower),
+    applyCountsByYearConstraint(
+      applyCountsByQuarterConstraint(
+        applyCountIntentConstraint(
+          applyTopEmployersApplicationsConstraint(
+            applyRequestedLimit(
+              applyFiscalPeriodConstraint(normalizeEmployerEquality(cleanedSql), queryLower),
+              queryLower,
+            ),
             queryLower,
           ),
           queryLower,
