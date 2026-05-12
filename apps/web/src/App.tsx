@@ -38,7 +38,7 @@ const STARTER_QUERIES = [
 ]
 
 const DEFAULT_DATASET_URL =
-  '/data/parquet/dol_lca_h1b_fy2020_q1_to_fy2026_q1.parquet'
+  'https://h1b-nlq-parquet-577479071532-20260511.s3.us-east-1.amazonaws.com/data/parquet/dol_lca_h1b_fy2020_q1_to_fy2026_q1.parquet?v=full_multi_20260512'
 
 function App() {
   const [query, setQuery] = useState('top employers by H1B approvals in 2023')
