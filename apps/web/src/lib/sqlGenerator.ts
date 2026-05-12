@@ -98,18 +98,45 @@ function isCountIntent(queryLower: string) {
   return asksForCount && asksAboutH1b
 }
 
-function buildCountIntentSql(queryLower: string) {
+function isCountsByQuarterIntent(queryLower: string) {
+  const asksByQuarter = /\b(by|per)\s+quarter\b|\bquarterly\b/i.test(queryLower)
+  const asksAboutH1b = /\b(h-?1bs?|hi1bs?|h1bs?|lca|application|applications|filing|filings)\b/i.test(
+    queryLower,
+  )
+  const asksForCount = /\b(count|counts|how\s+many|number\s+of|total|list|show)\b/i.test(queryLower)
+
+  return asksByQuarter && asksAboutH1b && asksForCount
+}
+
+function extractYearOrFiscalFilter(queryLower: string) {
   const fiscalPeriod = parseFiscalPeriod(queryLower)
-  const yearMatch = fiscalPeriod ? null : queryLower.match(/(20\d{2})/)
-  const yearOrFiscalFilter = yearMatch
-    ? ` AND (year = ${yearMatch[1]} OR fiscal_year = ${yearMatch[1]})`
-    : ''
+  if (fiscalPeriod) {
+    return ''
+  }
+
+  const yearMatch = queryLower.match(/(20\d{2})/)
+  return yearMatch ? ` AND (year = ${yearMatch[1]} OR fiscal_year = ${yearMatch[1]})` : ''
+}
+
+function buildCountIntentSql(queryLower: string) {
+  const yearOrFiscalFilter = extractYearOrFiscalFilter(queryLower)
   const fiscalFilter = extractFiscalFilter(queryLower)
   const employerPrefixFilter = extractEmployerPrefixFilter(queryLower)
 
   return `SELECT COUNT(*) AS total_h1b_records
 FROM h1b_raw
 WHERE 1=1${yearOrFiscalFilter}${fiscalFilter}${employerPrefixFilter}`
+}
+
+function buildCountsByQuarterSql(queryLower: string) {
+  const yearOrFiscalFilter = extractYearOrFiscalFilter(queryLower)
+  const fiscalFilter = extractFiscalFilter(queryLower)
+
+  return `SELECT fiscal_year, fiscal_quarter, COUNT(*) AS total_h1b_records
+FROM h1b_raw
+WHERE 1=1${yearOrFiscalFilter}${fiscalFilter}
+GROUP BY fiscal_year, fiscal_quarter
+ORDER BY fiscal_year, fiscal_quarter`
 }
 
 function buildTopEmployersApplicationsSql(queryLower: string) {
@@ -265,11 +292,23 @@ function applyCountIntentConstraint(sql: string, queryLower: string) {
   return buildCountIntentSql(queryLower)
 }
 
+function applyCountsByQuarterConstraint(sql: string, queryLower: string) {
+  if (!isCountsByQuarterIntent(queryLower)) {
+    return sql
+  }
+
+  return buildCountsByQuarterSql(queryLower)
+}
+
 function deterministicFallbackSql(query: string) {
   const q = query.toLowerCase()
   const yearFilter = extractCalendarYearFilter(q)
   const fiscalFilter = extractFiscalFilter(q)
   const employerPrefixFilter = extractEmployerPrefixFilter(q)
+
+  if (isCountsByQuarterIntent(q)) {
+    return buildCountsByQuarterSql(q)
+  }
 
   if (isCountIntent(q)) {
     return buildCountIntentSql(q)
@@ -331,10 +370,13 @@ export async function generateSqlFromNl(input: SqlGenerationInput) {
   if (!input.apiKey) {
     const fallbackSql = deterministicFallbackSql(trimmedQuery)
     return applyStartsWithEmployerConstraint(
-      applyCountIntentConstraint(
-        applyTopEmployersApplicationsConstraint(
-          applyRequestedLimit(
-            applyFiscalPeriodConstraint(normalizeEmployerEquality(fallbackSql), queryLower),
+      applyCountsByQuarterConstraint(
+        applyCountIntentConstraint(
+          applyTopEmployersApplicationsConstraint(
+            applyRequestedLimit(
+              applyFiscalPeriodConstraint(normalizeEmployerEquality(fallbackSql), queryLower),
+              queryLower,
+            ),
             queryLower,
           ),
           queryLower,
@@ -383,10 +425,13 @@ export async function generateSqlFromNl(input: SqlGenerationInput) {
 
   const cleanedSql = content.replace(/```sql|```/gi, '').trim()
   return applyStartsWithEmployerConstraint(
-    applyCountIntentConstraint(
-      applyTopEmployersApplicationsConstraint(
-        applyRequestedLimit(
-          applyFiscalPeriodConstraint(normalizeEmployerEquality(cleanedSql), queryLower),
+    applyCountsByQuarterConstraint(
+      applyCountIntentConstraint(
+        applyTopEmployersApplicationsConstraint(
+          applyRequestedLimit(
+            applyFiscalPeriodConstraint(normalizeEmployerEquality(cleanedSql), queryLower),
+            queryLower,
+          ),
           queryLower,
         ),
         queryLower,
