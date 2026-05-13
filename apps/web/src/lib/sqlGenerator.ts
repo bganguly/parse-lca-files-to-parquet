@@ -103,7 +103,7 @@ function formatNetworkFetchError(provider: LlmProvider, message: string) {
   if (provider === 'anthropic') {
     return (
       'Network fetch failed for Anthropic from browser. This is usually a CORS/browser restriction for direct API calls. ' +
-      'Use OpenRouter for browser-based Claude access, or route Anthropic requests through your backend proxy. ' +
+      'Route Anthropic requests through your backend proxy for browser use. ' +
       'You can also use the downloadable plain HTML fallback form at /downloads/llm-request-form.html. ' +
       `Original error: ${message}`
     )
