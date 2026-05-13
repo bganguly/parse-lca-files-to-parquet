@@ -183,9 +183,14 @@ function App() {
     } catch (error) {
       const rawMessage = error instanceof Error ? error.message : 'Failed to run query.'
       const missingFilesPattern = /No files found that match the pattern/i
+      const failedFetchPattern = /Failed to fetch/i
       const message = missingFilesPattern.test(rawMessage)
         ? `${rawMessage}\nHint: run "npm run ui:min" to generate local parquet files, or use an S3 parquet URL.`
-        : rawMessage
+        : failedFetchPattern.test(rawMessage)
+          ? llmProvider === 'anthropic'
+            ? 'Anthropic request failed from browser (likely CORS/network). Use a backend proxy or download /downloads/llm-request-form.html.'
+            : 'Network request failed. Check API key validity, browser network restrictions, and connectivity.'
+          : rawMessage
       const run: QueryRun = {
         id: crypto.randomUUID(),
         question: query,
