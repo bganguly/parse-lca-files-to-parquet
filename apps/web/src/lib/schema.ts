@@ -28,6 +28,7 @@ Rules:
 - Use only the listed columns.
 - Never use INSERT, UPDATE, DELETE, DROP, ALTER, CREATE.
 - Always return a SELECT query.
+- Query only the provided table name; do not use read_parquet(), read_csv_auto(), read_csv(), or any external file path in SQL.
 - If the user asks for approvals, use status LIKE 'Certified%'.
 - If the user asks for applications/filings, count all rows (COUNT(*)) and do not add a status filter unless user explicitly asks.
 - If the user asks for denials, use status = 'Denied'.

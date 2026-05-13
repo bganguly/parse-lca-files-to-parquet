@@ -344,7 +344,7 @@ export async function generateSqlFromNl(input: SqlGenerationInput) {
   const bypassSqlGuards = input.bypassSqlGuards ?? false
   ensureModelCompatible(provider, model)
 
-  const prompt = `You are a SQL expert. Given this schema:\n${input.schemaPrompt}\n\nConvert this question to SQL (DuckDB syntax, reading from parquet on S3):\n"${trimmedQuery}"\n\nReturn ONLY the SQL query, nothing else.`
+  const prompt = `You are a SQL expert. Given this schema:\n${input.schemaPrompt}\n\nConvert this question to SQL (DuckDB syntax) using only the table defined in the schema.\nDo not use read_parquet(), read_csv_auto(), read_csv(), or external file paths in SQL.\n\nQuestion:\n"${trimmedQuery}"\n\nReturn ONLY the SQL query, nothing else.`
 
   for (let attempt = 1; attempt <= MAX_API_ATTEMPTS; attempt += 1) {
     let response: Response
