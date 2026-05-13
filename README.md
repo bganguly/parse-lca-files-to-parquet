@@ -40,6 +40,11 @@ Example with all three values:
 npm run infra:up -- h1b-lca-parquet-prod us-east-1 full_multi_fiscal_noempty_countrynull_$(date +%Y%m%d)
 ```
 
+Run guidance:
+
+- If this is your first time working on this repo, use the usual 3-args flow above (`bucket-name`, `aws-region`, `version-tag`).
+- If you have done this before, first check whether parquet already exists (local `data/parquet/` and/or in your S3 bucket). If it exists, run an independent repeat flow where you only parse new XLSX data and upload refreshed parquet artifacts, instead of treating every run as a full first-time bootstrap.
+
 - If `bucket-name` is omitted, a unique bucket is created automatically.
 - If `version-tag` is provided, cache-busted URLs are also printed.
 
