@@ -4,8 +4,17 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-REGION="${2:-us-east-1}"
-VERSION_TAG="${3:-}"
+SECOND_ARG="${2:-}"
+THIRD_ARG="${3:-}"
+
+# Prefer new order: [version-tag] [region], but accept legacy [region] [version-tag].
+if [[ "$SECOND_ARG" =~ ^[a-z]{2}-[a-z]+-[0-9]+$ ]]; then
+  REGION="$SECOND_ARG"
+  VERSION_TAG="$THIRD_ARG"
+else
+  VERSION_TAG="$SECOND_ARG"
+  REGION="${THIRD_ARG:-us-east-1}"
+fi
 ACCOUNT_ID="$(AWS_PAGER="" aws sts get-caller-identity --query Account --output text)"
 BUCKET="${1:-h1b-nlq-parquet-${ACCOUNT_ID}-$(date +%Y%m%d%H%M%S)}"
 STATE_DIR="$ROOT_DIR/.infra"
@@ -75,7 +84,7 @@ EOF
 AWS_PAGER="" aws s3api put-bucket-cors --bucket "$BUCKET" --cors-configuration file:///tmp/h1b_cors.json
 
 echo "[infra:up] uploading parquet to S3..."
-bash scripts/upload_parquet_to_s3.sh "$BUCKET" "$REGION" "$VERSION_TAG"
+bash scripts/upload_parquet_to_s3.sh "$BUCKET" "$VERSION_TAG" "$REGION"
 
 mkdir -p "$STATE_DIR"
 cat > "$STATE_FILE" <<EOF

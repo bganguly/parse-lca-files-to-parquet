@@ -52,7 +52,7 @@ npm run build:parquet
 - Upload parquet to S3:
 
 ```bash
-npm run upload:s3:parquet -- <your-bucket-name> <aws-region> [version-tag]
+npm run upload:s3:parquet -- <your-bucket-name> [version-tag] [aws-region]
 ```
 
 If `version-tag` is provided, the script also prints cache-busted URLs with `?v=<version-tag>`.
@@ -60,7 +60,7 @@ If `version-tag` is provided, the script also prints cache-busted URLs with `?v=
 - End-to-end infra flow (fetch + parquet + bucket setup + upload):
 
 ```bash
-npm run infra:up -- [bucket-name] [aws-region] [version-tag]
+npm run infra:up -- [bucket-name] [version-tag] [aws-region]
 ```
 
 - Tear down infra bucket and objects:
