@@ -63,7 +63,12 @@ function App() {
   const [history, setHistory] = useState<QueryRun[]>([])
   const modelPresets = MODEL_PRESETS_BY_PROVIDER[llmProvider]
   const usesCustomModel = !modelPresets.includes(llmModel)
+  const isLocalhost =
+    typeof window !== 'undefined' &&
+    ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
   const showFallbackDownload =
+    llmProvider === 'anthropic' &&
+    isLocalhost &&
     !!latestRun?.error &&
     /(network fetch failed|failed to fetch|cors|backend proxy)/i.test(latestRun.error)
 
@@ -251,7 +256,7 @@ function App() {
                 </option>
               ))}
             </select>
-            {llmProvider === 'anthropic' && (
+            {llmProvider === 'anthropic' && isLocalhost && (
               <small>
                 Anthropic may fail from localhost/browser due to CORS. Use backend proxy or download fallback form:{' '}
                 <a href="/downloads/llm-request-form.html" download>
@@ -289,10 +294,6 @@ function App() {
             )}
             <small>
               Provider routes: OpenAI uses OpenAI API and Anthropic uses Anthropic Messages API.
-              Download fallback plain HTML form:{' '}
-              <a href="/downloads/llm-request-form.html" download>
-                llm-request-form.html
-              </a>
             </small>
           </label>
           <label>
