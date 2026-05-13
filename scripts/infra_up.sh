@@ -10,7 +10,7 @@ ACCOUNT_ID="$(AWS_PAGER="" aws sts get-caller-identity --query Account --output 
 BUCKET="${1:-h1b-nlq-parquet-${ACCOUNT_ID}-$(date +%Y%m%d%H%M%S)}"
 STATE_DIR="$ROOT_DIR/.infra"
 STATE_FILE="$STATE_DIR/state.env"
-SINGLE_PARQUET_URL="https://$BUCKET.s3.$REGION.amazonaws.com/data/parquet/dol_lca_h1b_fy2020_q1_to_fy2026_q1.parquet"
+SINGLE_PARQUET_URL="https://$BUCKET.s3.$REGION.amazonaws.com/data/parquet/dol_lca_h1b_combined.parquet"
 
 echo "[infra:up] region: $REGION"
 echo "[infra:up] bucket: $BUCKET"

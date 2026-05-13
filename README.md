@@ -131,9 +131,10 @@ npm run create:cloudfront -- <your-bucket-name> <aws-region>
 
 The pipeline writes to `data/`:
 
-- `data/dol_lca_h1b_fy2020_q1_to_fy2026_q1.csv`
-- `data/parquet/dol_lca_h1b_fy2020_q1_to_fy2026_q1.parquet`
-- `data/parquet/dol_lca_h1b_fy2020_q1_to_fy2026_q1_partitioned/`
+- `data/manifest.json` — tracks the last successfully processed fiscal quarter; committed to git
+- `data/dol_lca_h1b_combined.csv` — combined normalized CSV (gitignored; rebuilt on each run)
+- `data/parquet/dol_lca_h1b_combined.parquet`
+- `data/parquet/dol_lca_h1b_combined_partitioned/`
 - `data/local_parquet/employer_possible_country_mapping.parquet` (local-only; not included in S3 upload sync)
 
 ## Official Data Sources

@@ -106,7 +106,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--csv",
-        default="data/dol_lca_h1b_fy2020_q1_to_fy2026_q1.csv",
+        default="data/dol_lca_h1b_combined.csv",
         help="Path to normalized CSV input.",
     )
     parser.add_argument(

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import argparse
 import csv
+import datetime
+import json
 import os
 import pathlib
 import re
@@ -211,25 +213,108 @@ def normalize_quarter_to_temp_csv(
         )
 
 
+def compute_current_fiscal_quarter() -> tuple[int, int]:
+    now = datetime.date.today()
+    month = now.month
+    year = now.year
+    if month >= 10:
+        return year + 1, 1
+    elif month >= 7:
+        return year, 4
+    elif month >= 4:
+        return year, 3
+    else:
+        return year, 2
+
+
+def next_fiscal_quarter(fy: int, quarter: int) -> tuple[int, int]:
+    if quarter < 4:
+        return fy, quarter + 1
+    return fy + 1, 1
+
+
+def read_manifest(manifest_path: pathlib.Path) -> dict | None:
+    if not manifest_path.exists():
+        return None
+    with manifest_path.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def write_manifest(manifest_path: pathlib.Path, start_fy: int, start_quarter: int, last_fy: int, last_quarter: int) -> None:
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    data = {
+        "start_fy": start_fy,
+        "start_quarter": start_quarter,
+        "last_fy": last_fy,
+        "last_quarter": last_quarter,
+        "updated_at": datetime.date.today().isoformat(),
+    }
+    with manifest_path.open("w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+    print(f"Manifest updated: {manifest_path}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--max-rows", type=int, default=None)
-    parser.add_argument("--start-fy", type=int, default=2020)
-    parser.add_argument("--start-quarter", type=int, default=1)
-    parser.add_argument("--end-fy", type=int, default=2026)
-    parser.add_argument("--end-quarter", type=int, default=1)
+    parser.add_argument("--manifest", default="data/manifest.json",
+                        help="Path to pipeline manifest JSON (tracks last processed quarter).")
+    parser.add_argument("--output-csv", default="data/dol_lca_h1b_combined.csv",
+                        help="Path for the combined normalized CSV output.")
+    parser.add_argument("--start-fy", type=int, default=None,
+                        help="Override start fiscal year (default: read from manifest or 2020).")
+    parser.add_argument("--start-quarter", type=int, default=None,
+                        help="Override start fiscal quarter (default: read from manifest or 1).")
+    parser.add_argument("--end-fy", type=int, default=None,
+                        help="Override end fiscal year (default: auto-computed from current date).")
+    parser.add_argument("--end-quarter", type=int, default=None,
+                        help="Override end fiscal quarter (default: auto-computed from current date).")
     parser.add_argument("--parallel-downloads", type=int, default=4)
     # Default 2 workers gives a strong speedup while keeping RAM/thermals manageable on older 16 GB Macs.
     parser.add_argument("--parallel-normalize", type=int, default=2)
     parser.add_argument("--min-calendar-year", type=int, default=2020)
     args = parser.parse_args()
 
-    if args.start_quarter < 1 or args.start_quarter > 4:
-        raise ValueError("--start-quarter must be between 1 and 4")
-    if args.end_quarter < 1 or args.end_quarter > 4:
-        raise ValueError("--end-quarter must be between 1 and 4")
-    if (args.start_fy, args.start_quarter) > (args.end_fy, args.end_quarter):
-        raise ValueError("start fiscal quarter must be <= end fiscal quarter")
+    root = pathlib.Path(__file__).resolve().parents[1]
+    manifest_path = root / args.manifest
+    manifest = read_manifest(manifest_path)
+
+    # Determine effective start quarter.
+    explicit_start = args.start_fy is not None and args.start_quarter is not None
+    if explicit_start:
+        effective_start_fy = args.start_fy
+        effective_start_quarter = args.start_quarter
+        is_incremental = False
+    elif manifest is not None:
+        effective_start_fy, effective_start_quarter = next_fiscal_quarter(
+            manifest["last_fy"], manifest["last_quarter"]
+        )
+        is_incremental = True
+        print(f"[manifest] Last processed: FY{manifest['last_fy']} Q{manifest['last_quarter']}")
+        print(f"[manifest] Resuming from: FY{effective_start_fy} Q{effective_start_quarter}")
+    else:
+        effective_start_fy = 2020
+        effective_start_quarter = 1
+        is_incremental = False
+
+    # Determine effective end quarter.
+    if args.end_fy is not None and args.end_quarter is not None:
+        effective_end_fy = args.end_fy
+        effective_end_quarter = args.end_quarter
+    else:
+        effective_end_fy, effective_end_quarter = compute_current_fiscal_quarter()
+        print(f"[manifest] Auto-detected current quarter: FY{effective_end_fy} Q{effective_end_quarter}")
+
+    # Nothing to do if already up to date.
+    if (effective_start_fy, effective_start_quarter) > (effective_end_fy, effective_end_quarter):
+        print(f"Already up to date through FY{effective_end_fy} Q{effective_end_quarter}. Nothing to download.")
+        return
+
+    if effective_start_quarter < 1 or effective_start_quarter > 4:
+        raise ValueError("start quarter must be between 1 and 4")
+    if effective_end_quarter < 1 or effective_end_quarter > 4:
+        raise ValueError("end quarter must be between 1 and 4")
     if args.parallel_downloads < 1:
         raise ValueError("--parallel-downloads must be >= 1")
     if args.parallel_normalize < 1:
@@ -241,18 +326,15 @@ def main() -> None:
         print("--max-rows is set; forcing sequential normalization for deterministic truncation.")
         args.parallel_normalize = 1
 
-    root = pathlib.Path(__file__).resolve().parents[1]
     data_dir = root / "data"
     source_dir = data_dir / "sources"
     source_dir.mkdir(parents=True, exist_ok=True)
 
-    dataset_stem = f"dol_lca_h1b_fy{args.start_fy}_q{args.start_quarter}_to_fy{args.end_fy}_q{args.end_quarter}"
-
-    dol_csv_path = data_dir / f"{dataset_stem}.csv"
+    dol_csv_path = root / args.output_csv
 
     fiscal_quarters = list(
-        iter_fiscal_quarters(args.start_fy, args.start_quarter,
-                             args.end_fy, args.end_quarter)
+        iter_fiscal_quarters(effective_start_fy, effective_start_quarter,
+                             effective_end_fy, effective_end_quarter)
     )
 
     quarter_jobs: list[tuple[int, int, pathlib.Path, str]] = []
@@ -312,21 +394,27 @@ def main() -> None:
     total_rows = 0
     output_written = False
     dol_csv_path.parent.mkdir(parents=True, exist_ok=True)
-    with dol_csv_path.open("w", newline="", encoding="utf-8") as output_handle:
+
+    # Incremental mode: append new quarter rows to the existing combined CSV.
+    csv_mode = "a" if (is_incremental and dol_csv_path.exists()) else "w"
+    write_header = csv_mode == "w"
+
+    with dol_csv_path.open(csv_mode, newline="", encoding="utf-8") as output_handle:
         writer = csv.writer(output_handle)
-        writer.writerow(
-            [
-                "employer",
-                "job_title",
-                "country",
-                "work_location",
-                "wage",
-                "status",
-                "year",
-                "fiscal_year",
-                "fiscal_quarter",
-            ]
-        )
+        if write_header:
+            writer.writerow(
+                [
+                    "employer",
+                    "job_title",
+                    "country",
+                    "work_location",
+                    "wage",
+                    "status",
+                    "year",
+                    "fiscal_year",
+                    "fiscal_quarter",
+                ]
+            )
 
         for _fy, _quarter, quarter_xlsx, temp_csv in temp_jobs:
             with temp_csv.open("r", newline="", encoding="utf-8") as temp_handle:
@@ -351,7 +439,7 @@ def main() -> None:
         raise RuntimeError(
             "No DOL rows were written. Check source files and conversion logic.")
 
-    # Remove older single-quarter normalized CSV if present to avoid confusion.
+    # Remove older dated-name CSVs to avoid confusion.
     legacy_csv = data_dir / "dol_lca_h1b_fy2026_q1.csv"
     if legacy_csv.exists() and legacy_csv != dol_csv_path:
         legacy_csv.unlink()
@@ -359,12 +447,17 @@ def main() -> None:
     if source_dir.exists() and not any(source_dir.iterdir()):
         source_dir.rmdir()
 
+    # Update manifest with the new last-processed quarter.
+    manifest_start_fy = manifest["start_fy"] if manifest else effective_start_fy
+    manifest_start_quarter = manifest["start_quarter"] if manifest else effective_start_quarter
+    write_manifest(manifest_path, manifest_start_fy, manifest_start_quarter, effective_end_fy, effective_end_quarter)
+
     print("Done.")
     print(
-        f"DOL fiscal quarter range: FY{args.start_fy} Q{args.start_quarter} -> FY{args.end_fy} Q{args.end_quarter}")
+        f"DOL fiscal quarter range processed this run: FY{effective_start_fy} Q{effective_start_quarter} -> FY{effective_end_fy} Q{effective_end_quarter}")
     print(f"Minimum included calendar year: {args.min_calendar_year}")
-    print(f"DOL normalized CSV rows: {total_rows}")
-    print(f"DOL normalized CSV: {dol_csv_path}")
+    print(f"DOL normalized CSV rows (this run): {total_rows}")
+    print(f"DOL combined CSV: {dol_csv_path}")
 
 
 if __name__ == "__main__":
