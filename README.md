@@ -35,6 +35,10 @@ This executes:
 1. `npm run fetch:official-data`
 2. `npm run build:parquet`
 
+Typical end-to-end runtime is about 20-25 minutes (depending on network and machine).
+
+After fetch/normalize completes, temporary local quarter XLSX and intermediate normalized CSV files are removed automatically.
+
 ## Commands
 
 - Fetch and normalize official source data:
@@ -52,7 +56,7 @@ npm run build:parquet
 - Upload parquet to S3:
 
 ```bash
-npm run upload:s3:parquet -- <your-bucket-name> [version-tag] [aws-region]
+npm run upload:s3:parquet -- <your-bucket-name> <aws-region> [version-tag]
 ```
 
 If `version-tag` is provided, the script also prints cache-busted URLs with `?v=<version-tag>`.
@@ -60,7 +64,7 @@ If `version-tag` is provided, the script also prints cache-busted URLs with `?v=
 - End-to-end infra flow (fetch + parquet + bucket setup + upload):
 
 ```bash
-npm run infra:up -- [bucket-name] [version-tag] [aws-region]
+npm run infra:up -- [bucket-name] [aws-region] [version-tag]
 ```
 
 - Tear down infra bucket and objects:
@@ -93,14 +97,14 @@ The pipeline writes to `data/`:
 
 ## Parallel Fetch/Normalize Tuning
 
-Example for faster ingest:
-
-```bash
-python3 scripts/fetch_official_h1b_data.py --parallel-downloads 6 --parallel-normalize 3
-```
-
 Conservative defaults for older 16 GB Macs:
 
 ```bash
 python3 scripts/fetch_official_h1b_data.py --parallel-downloads 4 --parallel-normalize 2
+```
+
+Example for faster ingest:
+
+```bash
+python3 scripts/fetch_official_h1b_data.py --parallel-downloads 6 --parallel-normalize 3
 ```
