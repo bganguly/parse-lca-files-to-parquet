@@ -99,6 +99,16 @@ function isTopBottomEmployersGenericIntent(queryLower: string) {
   return hasTopOrBottom && hasEmployer && !hasApplications && !hasApprovals && !hasPercent
 }
 
+function isTopBottomEmployersByYearIntent(queryLower: string) {
+  const hasTopOrBottom = /\b(top|bottom)\b/i.test(queryLower)
+  const hasEmployer = queryLower.includes('employer')
+  const asksByYear = /\b(by|per|each)\s+years?\b|\byearly\b/i.test(queryLower)
+  const hasApprovals = /(approval|approvals|approved|certified)/i.test(queryLower)
+  const hasPercent = /(percent|percentage|share)/i.test(queryLower)
+
+  return hasTopOrBottom && hasEmployer && asksByYear && !hasApprovals && !hasPercent
+}
+
 function isEmployerPercentageIntent(queryLower: string) {
   const hasEmployer = queryLower.includes('employer')
   const hasPercent = /(percent|percentage|share)/i.test(queryLower)
@@ -107,12 +117,12 @@ function isEmployerPercentageIntent(queryLower: string) {
 }
 
 function isTopEmployersApprovalsByYearIntent(queryLower: string) {
-  const hasTop = queryLower.includes('top')
+  const hasTopOrBottom = /\b(top|bottom)\b/i.test(queryLower)
   const hasEmployer = queryLower.includes('employer')
   const hasApprovals = /(approval|approvals|approved|certified)/i.test(queryLower)
-  const asksByYear = /\b(by|per|each)\s+year\b|\byearly\b/i.test(queryLower)
+  const asksByYear = /\b(by|per|each)\s+years?\b|\byearly\b/i.test(queryLower)
 
-  return hasTop && hasEmployer && hasApprovals && asksByYear
+  return hasTopOrBottom && hasEmployer && hasApprovals && asksByYear
 }
 
 function isCountIntent(queryLower: string) {
@@ -135,13 +145,35 @@ function isCountsByQuarterIntent(queryLower: string) {
 }
 
 function isCountsByYearIntent(queryLower: string) {
-  const asksByYear = /\b(by|per)\s+year\b|\byearly\b/i.test(queryLower)
+  const asksByYear = /\b(by|per)\s+years?\b|\byearly\b/i.test(queryLower)
   const asksAboutH1b = /\b(h-?1bs?|hi1bs?|h1bs?|lca|application|applications|filing|filings)\b/i.test(
     queryLower,
   )
   const asksForCount = /\b(count|counts|how\s+many|number\s+of|total|list|show)\b/i.test(queryLower)
 
   return asksByYear && asksAboutH1b && asksForCount
+}
+
+function buildTopEmployersByYearSql(queryLower: string) {
+  const requestedLimit = parseRequestedLimit(queryLower) ?? 10
+  const employerPrefixFilter = extractEmployerPrefixFilter(queryLower)
+  const employerExpr = "COALESCE(NULLIF(TRIM(employer), ''), 'N/A - Employer Not Published')"
+  const orderDirection = /\bbottom\b/i.test(queryLower) ? 'ASC' : 'DESC'
+
+  return `WITH ranked AS (
+  SELECT
+    year,
+    ${employerExpr} AS employer,
+    COUNT(*) AS applications,
+    ROW_NUMBER() OVER (PARTITION BY year ORDER BY COUNT(*) ${orderDirection}) AS rank_in_year
+  FROM h1b_raw
+  WHERE 1=1${employerPrefixFilter}
+  GROUP BY year, 2
+)
+SELECT year, employer, applications
+FROM ranked
+WHERE rank_in_year <= ${requestedLimit}
+ORDER BY year, applications ${orderDirection}, employer`
 }
 
 function extractYearOrFiscalFilter(queryLower: string) {
@@ -388,6 +420,14 @@ function applyTopBottomEmployersGenericConstraint(sql: string, queryLower: strin
   return buildTopEmployersApplicationsSql(queryLower)
 }
 
+function applyTopBottomEmployersByYearConstraint(sql: string, queryLower: string) {
+  if (!isTopBottomEmployersByYearIntent(queryLower)) {
+    return sql
+  }
+
+  return buildTopEmployersByYearSql(queryLower)
+}
+
 function applyEmployerPercentageConstraint(sql: string, queryLower: string) {
   if (!isEmployerPercentageIntent(queryLower)) {
     return sql
@@ -448,6 +488,10 @@ function deterministicFallbackSql(query: string) {
 
   if (isTopEmployersApplicationsIntent(q)) {
     return buildTopEmployersApplicationsSql(q)
+  }
+
+  if (isTopBottomEmployersByYearIntent(q)) {
+    return buildTopEmployersByYearSql(q)
   }
 
   if (isTopBottomEmployersGenericIntent(q)) {
@@ -518,11 +562,14 @@ export async function generateSqlFromNl(input: SqlGenerationInput) {
         applyCountsByQuarterConstraint(
           applyCountIntentConstraint(
             applyTopEmployersApplicationsConstraint(
-              applyTopBottomEmployersGenericConstraint(
-                applyEmployerPercentageConstraint(
-                  applyTopEmployersApprovalsByYearConstraint(
-                    applyRequestedLimit(
-                      applyFiscalPeriodConstraint(normalizeEmployerEquality(fallbackSql), queryLower),
+              applyTopBottomEmployersByYearConstraint(
+                applyTopBottomEmployersGenericConstraint(
+                  applyEmployerPercentageConstraint(
+                    applyTopEmployersApprovalsByYearConstraint(
+                      applyRequestedLimit(
+                        applyFiscalPeriodConstraint(normalizeEmployerEquality(fallbackSql), queryLower),
+                        queryLower,
+                      ),
                       queryLower,
                     ),
                     queryLower,
@@ -585,11 +632,14 @@ export async function generateSqlFromNl(input: SqlGenerationInput) {
       applyCountsByQuarterConstraint(
         applyCountIntentConstraint(
           applyTopEmployersApplicationsConstraint(
-            applyTopBottomEmployersGenericConstraint(
-              applyEmployerPercentageConstraint(
-                applyTopEmployersApprovalsByYearConstraint(
-                  applyRequestedLimit(
-                    applyFiscalPeriodConstraint(normalizeEmployerEquality(cleanedSql), queryLower),
+            applyTopBottomEmployersByYearConstraint(
+              applyTopBottomEmployersGenericConstraint(
+                applyEmployerPercentageConstraint(
+                  applyTopEmployersApprovalsByYearConstraint(
+                    applyRequestedLimit(
+                      applyFiscalPeriodConstraint(normalizeEmployerEquality(cleanedSql), queryLower),
+                      queryLower,
+                    ),
                     queryLower,
                   ),
                   queryLower,
