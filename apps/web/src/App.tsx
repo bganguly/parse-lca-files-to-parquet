@@ -246,6 +246,14 @@ function App() {
                 </option>
               ))}
             </select>
+            {llmProvider === 'anthropic' && (
+              <small>
+                Anthropic may fail from localhost/browser due to CORS. Use backend proxy or download fallback form:{' '}
+                <a href="/downloads/llm-request-form.html" download>
+                  llm-request-form.html
+                </a>
+              </small>
+            )}
           </label>
           <label>
             LLM Model
