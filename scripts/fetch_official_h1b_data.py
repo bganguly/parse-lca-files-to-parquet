@@ -220,7 +220,8 @@ def main() -> None:
     parser.add_argument("--end-fy", type=int, default=2026)
     parser.add_argument("--end-quarter", type=int, default=1)
     parser.add_argument("--parallel-downloads", type=int, default=4)
-    parser.add_argument("--parallel-normalize", type=int, default=1)
+    # Default 2 workers gives a strong speedup while keeping RAM/thermals manageable on older 16 GB Macs.
+    parser.add_argument("--parallel-normalize", type=int, default=2)
     parser.add_argument("--min-calendar-year", type=int, default=2020)
     args = parser.parse_args()
 
