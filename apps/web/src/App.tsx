@@ -72,6 +72,8 @@ function App() {
       return null
     }
 
+    const dimensionColumns = result.columns.filter((column) => column !== numericColumn)
+
     const hasFiscalYearQuarter =
       result.columns.includes('fiscal_year') && result.columns.includes('fiscal_quarter')
 
@@ -82,14 +84,23 @@ function App() {
     }
 
     if (hasFiscalYearQuarter) {
+      const otherDimensions = dimensionColumns.filter(
+        (column) => column !== 'fiscal_year' && column !== 'fiscal_quarter',
+      )
       const chartRows = result.rows.map((row) => ({
         ...row,
         quarter_label: `FY${String(row.fiscal_year ?? '')} Q${String(row.fiscal_quarter ?? '')}`,
+        chart_label:
+          otherDimensions.length > 0
+            ? `FY${String(row.fiscal_year ?? '')} Q${String(row.fiscal_quarter ?? '')} · ${otherDimensions
+                .map((column) => String(row[column] ?? ''))
+                .join(' · ')}`
+            : `FY${String(row.fiscal_year ?? '')} Q${String(row.fiscal_quarter ?? '')}`,
         chart_value: toChartValue(row),
       }))
 
       return {
-        labelKey: 'quarter_label',
+        labelKey: 'chart_label',
         valueKey: 'chart_value',
         chartType: 'bar',
         data: chartRows,
@@ -102,10 +113,17 @@ function App() {
     )
 
     return {
-      labelKey: firstColumn,
+      labelKey:
+        dimensionColumns.length > 1
+          ? 'chart_label'
+          : (dimensionColumns[0] ?? firstColumn),
       valueKey: 'chart_value',
       chartType: isAggregateQuery ? 'bar' : isTimeSeries ? 'line' : 'bar',
-      data: result.rows.map((row) => ({ ...row, chart_value: toChartValue(row) })),
+      data: result.rows.map((row) => ({
+        ...row,
+        chart_label: dimensionColumns.map((column) => String(row[column] ?? '')).join(' · '),
+        chart_value: toChartValue(row),
+      })),
     } as const
   }, [latestRun])
 
