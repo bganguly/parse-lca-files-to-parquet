@@ -13,7 +13,7 @@ import {
 } from 'recharts'
 import { DUCKDB_H1B_TABLE, duckDbEngine } from './lib'
 import { H1B_SCHEMA, buildSqlGenerationPrompt } from './lib/schema'
-import { generateSqlFromNl } from './lib/sqlGenerator'
+import { generateSqlFromNl, type LlmProvider } from './lib/sqlGenerator'
 import { validateGeneratedSql } from './lib/sqlSafety'
 
 type QueryResult = {
@@ -37,6 +37,31 @@ const STARTER_QUERIES = [
   'average wage by job_title for certified cases',
 ]
 
+const PROVIDER_OPTIONS: Array<{ value: LlmProvider; label: string }> = [
+  { value: 'openai', label: 'OpenAI' },
+  { value: 'anthropic', label: 'Anthropic' },
+  { value: 'openrouter', label: 'OpenRouter' },
+]
+
+const MODEL_PRESETS_BY_PROVIDER: Record<LlmProvider, readonly string[]> = {
+  openai: ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'o4-mini', 'o3', 'o3-mini', 'o1'],
+  anthropic: ['claude-3-5-sonnet-latest', 'claude-3-7-sonnet-latest', 'claude-sonnet-4-20250514', 'claude-opus-4-20250514'],
+  openrouter: [
+    'gpt-4o-mini',
+    'gpt-4o',
+    'gpt-4.1',
+    'o4-mini',
+    'o3-mini',
+    'claude-3-7-sonnet-latest',
+    'claude-sonnet-4-20250514',
+    'gemini-2.5-pro',
+    'gemini-2.5-flash',
+    'grok-3',
+  ],
+}
+
+const CUSTOM_MODEL_VALUE = '__custom_model__'
+
 const DEFAULT_DATASET_URL =
   'https://h1b-nlq-parquet-577479071532-20260511.s3.us-east-1.amazonaws.com/data/parquet/dol_lca_h1b_fy2020_q1_to_fy2026_q1.parquet?v=full_multi_fiscal_noempty_countrynull_20260512'
 
@@ -44,10 +69,13 @@ function App() {
   const [query, setQuery] = useState('top employers by H1B approvals in 2023')
   const [datasetPath, setDatasetPath] = useState(DEFAULT_DATASET_URL)
   const [llmApiKey, setLlmApiKey] = useState('')
+  const [llmProvider, setLlmProvider] = useState<LlmProvider>('openai')
   const [llmModel, setLlmModel] = useState('gpt-4o-mini')
   const [isRunning, setIsRunning] = useState(false)
   const [latestRun, setLatestRun] = useState<QueryRun | null>(null)
   const [history, setHistory] = useState<QueryRun[]>([])
+  const modelPresets = MODEL_PRESETS_BY_PROVIDER[llmProvider]
+  const usesCustomModel = !modelPresets.includes(llmModel)
 
   const chartConfig = useMemo(() => {
     const result = latestRun?.result
@@ -141,6 +169,7 @@ function App() {
         query,
         schemaPrompt: buildSqlGenerationPrompt(H1B_SCHEMA, DUCKDB_H1B_TABLE),
         apiKey: llmApiKey,
+        provider: llmProvider,
         model: llmModel,
       })
 
@@ -207,20 +236,65 @@ function App() {
             />
           </label>
           <label>
-            LLM Model
-            <input
-              value={llmModel}
-              onChange={(event) => setLlmModel(event.target.value)}
-              placeholder="gpt-4o-mini"
-            />
+            LLM Provider
+            <select
+              value={llmProvider}
+              onChange={(event) => {
+                const nextProvider = event.target.value as LlmProvider
+                setLlmProvider(nextProvider)
+
+                const nextPresets = MODEL_PRESETS_BY_PROVIDER[nextProvider]
+                if (!nextPresets.includes(llmModel)) {
+                  setLlmModel(nextPresets[0] ?? '')
+                }
+              }}
+            >
+              {PROVIDER_OPTIONS.map((provider) => (
+                <option key={provider.value} value={provider.value}>
+                  {provider.label}
+                </option>
+              ))}
+            </select>
           </label>
           <label>
-            LLM API key (optional: uses deterministic fallback when empty)
+            LLM Model
+            <select
+              value={usesCustomModel ? CUSTOM_MODEL_VALUE : llmModel}
+              onChange={(event) => {
+                const value = event.target.value
+                if (value === CUSTOM_MODEL_VALUE) {
+                  setLlmModel('')
+                  return
+                }
+                setLlmModel(value)
+              }}
+            >
+              {modelPresets.map((model) => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))}
+              <option value={CUSTOM_MODEL_VALUE}>Custom model id...</option>
+            </select>
+            {(usesCustomModel || !llmModel) && (
+              <input
+                value={llmModel}
+                onChange={(event) => setLlmModel(event.target.value)}
+                placeholder="Enter custom model id"
+              />
+            )}
+            <small>
+              Provider routes: OpenAI uses OpenAI API, Anthropic uses Anthropic Messages API,
+              OpenRouter uses OpenRouter chat completions.
+            </small>
+          </label>
+          <label>
+            LLM API key (required)
             <input
               value={llmApiKey}
               onChange={(event) => setLlmApiKey(event.target.value)}
               type="password"
-              placeholder="sk-..."
+              placeholder="Required: sk-..."
             />
           </label>
           <div className="suggestions">
@@ -248,8 +322,8 @@ function App() {
               placeholder="show approvals by country"
               rows={4}
             />
-            <button type="button" onClick={runQuery} disabled={isRunning}>
-              {isRunning ? 'Running...' : 'Run Query'}
+            <button type="button" onClick={runQuery} disabled={isRunning || !llmApiKey.trim()}>
+              {isRunning ? 'Running...' : !llmApiKey.trim() ? 'Enter API Key' : 'Run Query'}
             </button>
           </div>
 
