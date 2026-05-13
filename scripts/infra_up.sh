@@ -5,13 +5,18 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 REGION="${2:-us-east-1}"
+VERSION_TAG="${3:-}"
 ACCOUNT_ID="$(AWS_PAGER="" aws sts get-caller-identity --query Account --output text)"
 BUCKET="${1:-h1b-nlq-parquet-${ACCOUNT_ID}-$(date +%Y%m%d%H%M%S)}"
 STATE_DIR="$ROOT_DIR/.infra"
 STATE_FILE="$STATE_DIR/state.env"
+SINGLE_PARQUET_URL="https://$BUCKET.s3.$REGION.amazonaws.com/data/parquet/dol_lca_h1b_fy2020_q1_to_fy2026_q1.parquet"
 
 echo "[infra:up] region: $REGION"
 echo "[infra:up] bucket: $BUCKET"
+if [[ -n "$VERSION_TAG" ]]; then
+  echo "[infra:up] version tag: $VERSION_TAG"
+fi
 
 echo "[infra:up] installing python deps (openpyxl, pyarrow)..."
 python3 -m pip install --user openpyxl pyarrow
@@ -70,7 +75,7 @@ EOF
 AWS_PAGER="" aws s3api put-bucket-cors --bucket "$BUCKET" --cors-configuration file:///tmp/h1b_cors.json
 
 echo "[infra:up] uploading parquet to S3..."
-bash scripts/upload_parquet_to_s3.sh "$BUCKET" "$REGION"
+bash scripts/upload_parquet_to_s3.sh "$BUCKET" "$REGION" "$VERSION_TAG"
 
 mkdir -p "$STATE_DIR"
 cat > "$STATE_FILE" <<EOF
@@ -81,4 +86,7 @@ EOF
 
 echo "[infra:up] done"
 echo "[infra:up] state file: $STATE_FILE"
-echo "[infra:up] S3 parquet URL: https://$BUCKET.s3.$REGION.amazonaws.com/data/parquet/dol_lca_h1b_fy2020_q1_to_fy2026_q1.parquet"
+echo "[infra:up] S3 parquet URL: $SINGLE_PARQUET_URL"
+if [[ -n "$VERSION_TAG" ]]; then
+  echo "[infra:up] S3 parquet URL (cache-busted): ${SINGLE_PARQUET_URL}?v=$VERSION_TAG"
+fi
