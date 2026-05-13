@@ -71,17 +71,11 @@ function App() {
   const [llmApiKey, setLlmApiKey] = useState('')
   const [llmProvider, setLlmProvider] = useState<LlmProvider>('openai')
   const [llmModel, setLlmModel] = useState('gpt-4o-mini')
-  const [bypassGuardsByProvider, setBypassGuardsByProvider] = useState<Record<LlmProvider, boolean>>({
-    openai: false,
-    anthropic: true,
-    openrouter: false,
-  })
   const [isRunning, setIsRunning] = useState(false)
   const [latestRun, setLatestRun] = useState<QueryRun | null>(null)
   const [history, setHistory] = useState<QueryRun[]>([])
   const modelPresets = MODEL_PRESETS_BY_PROVIDER[llmProvider]
   const usesCustomModel = !modelPresets.includes(llmModel)
-  const bypassSqlGuards = bypassGuardsByProvider[llmProvider]
 
   const chartConfig = useMemo(() => {
     const result = latestRun?.result
@@ -178,7 +172,6 @@ function App() {
         apiKey: llmApiKey,
         provider: llmProvider,
         model: llmModel,
-        bypassSqlGuards,
       })
 
       validateGeneratedSql(generatedSql)
@@ -308,20 +301,6 @@ function App() {
               type="password"
               placeholder="Required: sk-..."
             />
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={bypassSqlGuards}
-              onChange={(event) => {
-                const checked = event.target.checked
-                setBypassGuardsByProvider((previous) => ({
-                  ...previous,
-                  [llmProvider]: checked,
-                }))
-              }}
-            />
-            Bypass SQL guard rewrites for this provider
           </label>
           <div className="suggestions">
             {STARTER_QUERIES.map((suggestion) => (

@@ -7,7 +7,6 @@ type SqlGenerationInput = {
   apiKey?: string
   model?: string
   provider?: LlmProvider
-  bypassSqlGuards?: boolean
 }
 
 const OPENAI_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions'
@@ -21,139 +20,6 @@ type ApiErrorPayload = {
     type?: string
     code?: string
   }
-}
-
-function parseRequestedLimit(queryLower: string): number {
-  const topMatch = queryLower.match(/\btop\s+(\d{1,4})\b/i)
-  const limitMatch = queryLower.match(/\blimit\s+(\d{1,4})\b/i)
-  const value = topMatch?.[1] ?? limitMatch?.[1]
-  const parsed = value ? Number(value) : 10
-
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return 10
-  }
-
-  return Math.min(parsed, 1000)
-}
-
-function isTopBottomEmployersByYearIntent(queryLower: string) {
-  const hasTopOrBottom = /\b(top|bottom)\b/i.test(queryLower)
-  const hasEmployer = queryLower.includes('employer')
-  const asksByYear = /\b(by|per|each)\s+years?\b|\byearly\b/i.test(queryLower)
-  const asksByQuarter = /\bquarter\b|\bq[1-4]\b/i.test(queryLower)
-  const hasWage = /\b(wage|wages|salary|salaries)\b/i.test(queryLower)
-
-  return hasTopOrBottom && hasEmployer && asksByYear && !asksByQuarter && !hasWage
-}
-
-function isTopBottomEmployersByWageYearIntent(queryLower: string) {
-  const hasTopOrBottom = /\b(top|bottom)\b/i.test(queryLower)
-  const hasEmployer = queryLower.includes('employer')
-  const asksByYear = /\b(by|per|each)\s+years?\b|\byearly\b/i.test(queryLower)
-  const asksByQuarter = /\bquarter\b|\bq[1-4]\b/i.test(queryLower)
-  const hasWage = /\b(wage|wages|salary|salaries)\b/i.test(queryLower)
-
-  return hasTopOrBottom && hasEmployer && hasWage && asksByYear && !asksByQuarter
-}
-
-function isTopBottomEmployersByYearQuarterIntent(queryLower: string) {
-  const hasTopOrBottom = /\b(top|bottom)\b/i.test(queryLower)
-  const hasEmployer = queryLower.includes('employer')
-  const hasYear = /\byears?\b/i.test(queryLower)
-  const hasQuarter = /\bquarter\b|\bq[1-4]\b/i.test(queryLower)
-
-  return hasTopOrBottom && hasEmployer && hasYear && hasQuarter
-}
-
-function buildTopEmployersByYearSql(queryLower: string) {
-  const requestedLimit = parseRequestedLimit(queryLower)
-  const employerExpr = "COALESCE(NULLIF(TRIM(employer), ''), 'N/A - Employer Not Published')"
-  const orderDirection = /\bbottom\b/i.test(queryLower) ? 'ASC' : 'DESC'
-  const topStatusFilter = /\btop\b/i.test(queryLower) ? " AND status LIKE 'Certified%'" : ''
-
-  return `WITH ranked AS (
-  SELECT
-    fiscal_year,
-    ${employerExpr} AS employer,
-    COUNT(*) AS applications,
-    ROW_NUMBER() OVER (PARTITION BY fiscal_year ORDER BY COUNT(*) ${orderDirection}) AS rank_in_year
-  FROM h1b_raw
-  WHERE 1=1${topStatusFilter}
-  GROUP BY fiscal_year, 2
-)
-SELECT fiscal_year, employer, applications
-FROM ranked
-WHERE rank_in_year <= ${requestedLimit}
-ORDER BY fiscal_year, applications ${orderDirection}, employer`
-}
-
-function buildTopEmployersByWageYearSql(queryLower: string) {
-  const requestedLimit = parseRequestedLimit(queryLower)
-  const employerExpr = "COALESCE(NULLIF(TRIM(employer), ''), 'N/A - Employer Not Published')"
-  const orderDirection = /\bbottom\b/i.test(queryLower) ? 'ASC' : 'DESC'
-  const topStatusFilter = /\btop\b/i.test(queryLower) ? " AND status LIKE 'Certified%'" : ''
-
-  return `WITH ranked AS (
-  SELECT
-    fiscal_year,
-    ${employerExpr} AS employer,
-    ROUND(AVG(wage), 2) AS avg_wage,
-    ROW_NUMBER() OVER (PARTITION BY fiscal_year ORDER BY AVG(wage) ${orderDirection}) AS rank_in_year
-  FROM h1b_raw
-  WHERE wage IS NOT NULL${topStatusFilter}
-  GROUP BY fiscal_year, 2
-)
-SELECT fiscal_year, employer, avg_wage
-FROM ranked
-WHERE rank_in_year <= ${requestedLimit}
-ORDER BY fiscal_year, avg_wage ${orderDirection}, employer`
-}
-
-function buildTopEmployersByYearQuarterSql(queryLower: string) {
-  const requestedLimit = parseRequestedLimit(queryLower)
-  const employerExpr = "COALESCE(NULLIF(TRIM(employer), ''), 'N/A - Employer Not Published')"
-  const orderDirection = /\bbottom\b/i.test(queryLower) ? 'ASC' : 'DESC'
-  const topStatusFilter = /\btop\b/i.test(queryLower) ? " AND status LIKE 'Certified%'" : ''
-
-  return `WITH ranked AS (
-  SELECT
-    fiscal_year,
-    fiscal_quarter,
-    ${employerExpr} AS employer,
-    COUNT(*) AS applications,
-    ROW_NUMBER() OVER (PARTITION BY fiscal_year, fiscal_quarter ORDER BY COUNT(*) ${orderDirection}) AS rank_in_period
-  FROM h1b_raw
-  WHERE 1=1${topStatusFilter}
-  GROUP BY fiscal_year, fiscal_quarter, 3
-)
-SELECT fiscal_year, fiscal_quarter, employer, applications
-FROM ranked
-WHERE rank_in_period <= ${requestedLimit}
-ORDER BY fiscal_year, fiscal_quarter, applications ${orderDirection}, employer`
-}
-
-function enforceTopEmployersByYearIntent(sql: string, queryLower: string) {
-  if (!isTopBottomEmployersByYearIntent(queryLower)) {
-    return sql
-  }
-
-  return buildTopEmployersByYearSql(queryLower)
-}
-
-function enforceTopEmployersByWageYearIntent(sql: string, queryLower: string) {
-  if (!isTopBottomEmployersByWageYearIntent(queryLower)) {
-    return sql
-  }
-
-  return buildTopEmployersByWageYearSql(queryLower)
-}
-
-function enforceTopEmployersByYearQuarterIntent(sql: string, queryLower: string) {
-  if (!isTopBottomEmployersByYearQuarterIntent(queryLower)) {
-    return sql
-  }
-
-  return buildTopEmployersByYearQuarterSql(queryLower)
 }
 
 function extractSqlOnly(rawContent: string) {
@@ -205,7 +71,7 @@ async function parseApiError(response: Response) {
     type = error?.type ?? ''
     code = error?.code ?? ''
   } catch {
-    // Ignore parse failures and keep status-based message.
+    // Keep status-based defaults when payload is not JSON.
   }
 
   return { message, type, code }
@@ -261,7 +127,7 @@ async function requestOpenAiCompatibleSql(
   prompt: string,
   useOpenRouterHeaders = false,
 ) {
-  const response = await fetch(endpoint, {
+  return fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -288,12 +154,10 @@ async function requestOpenAiCompatibleSql(
       ],
     }),
   })
-
-  return response
 }
 
 async function requestAnthropicSql(apiKey: string, model: string, prompt: string) {
-  const response = await fetch(ANTHROPIC_MESSAGES_URL, {
+  return fetch(ANTHROPIC_MESSAGES_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -313,54 +177,14 @@ async function requestAnthropicSql(apiKey: string, model: string, prompt: string
       ],
     }),
   })
-
-  return response
 }
 
 function resolveProvider(provider?: LlmProvider): LlmProvider {
   return provider ?? 'openai'
 }
 
-function applySqlGuards(sql: string, queryLower: string) {
-  return enforceTopEmployersByYearQuarterIntent(
-    enforceTopEmployersByYearIntent(enforceTopEmployersByWageYearIntent(sql, queryLower), queryLower),
-    queryLower,
-  )
-}
-
-function enforceTopQueryLimit(sql: string, queryLower: string) {
-  const asksTopOrBottom = /\b(top|bottom|highest|lowest|max(?:imum)?|min(?:imum)?|best\s*-?\s*paid)\b/i.test(
-    queryLower,
-  )
-  const hasLimit = /\blimit\s+\d+\b/i.test(sql)
-
-  if (!asksTopOrBottom || hasLimit) {
-    return sql
-  }
-
-  const requestedLimit = parseRequestedLimit(queryLower)
-  const normalizedSql = sql.trim().replace(/;+\s*$/, '')
-  return `${normalizedSql}\nLIMIT ${requestedLimit}`
-}
-
-function normalizeParquetSource(sql: string, datasetPath?: string) {
-  const activeDatasetPath = datasetPath?.trim()
-  if (!activeDatasetPath) {
-    return sql
-  }
-
-  const escapedDatasetPath = activeDatasetPath.replace(/'/g, "''")
-
-  return sql.replace(
-    /read_parquet\(\s*['"][^'"]*(your-bucket|path\/h1b_raw\.parquet)[^'"]*['"]\s*\)/gi,
-    `read_parquet('${escapedDatasetPath}')`,
-  )
-}
-
 export async function generateSqlFromNl(input: SqlGenerationInput) {
   const trimmedQuery = input.query.trim()
-  const queryLower = trimmedQuery.toLowerCase()
-
   if (!trimmedQuery) {
     throw new Error('Query cannot be empty.')
   }
@@ -371,7 +195,6 @@ export async function generateSqlFromNl(input: SqlGenerationInput) {
 
   const provider = resolveProvider(input.provider)
   const model = input.model || 'gpt-4o-mini'
-  const bypassSqlGuards = input.bypassSqlGuards ?? false
   const activeDatasetPath = input.datasetPath?.trim() ?? ''
   ensureModelCompatible(provider, model)
 
@@ -383,6 +206,7 @@ export async function generateSqlFromNl(input: SqlGenerationInput) {
 
   for (let attempt = 1; attempt <= MAX_API_ATTEMPTS; attempt += 1) {
     let response: Response
+
     try {
       response =
         provider === 'anthropic'
@@ -420,6 +244,7 @@ export async function generateSqlFromNl(input: SqlGenerationInput) {
       const data = (await response.json()) as {
         content?: Array<{ type?: string; text?: string }>
       }
+
       const content = (data.content ?? [])
         .filter((part) => part.type === 'text')
         .map((part) => part.text ?? '')
@@ -430,23 +255,19 @@ export async function generateSqlFromNl(input: SqlGenerationInput) {
         throw new Error('anthropic did not return SQL output.')
       }
 
-      const extractedSql = normalizeParquetSource(extractSqlOnly(content), activeDatasetPath)
-      const normalizedSql = bypassSqlGuards ? extractedSql : applySqlGuards(extractedSql, queryLower)
-      return enforceTopQueryLimit(normalizedSql, queryLower)
+      return extractSqlOnly(content)
     }
 
     const data = (await response.json()) as {
       choices?: Array<{ message?: { content?: string } }>
     }
-    const content = data.choices?.[0]?.message?.content?.trim()
 
+    const content = data.choices?.[0]?.message?.content?.trim()
     if (!content) {
       throw new Error(`${provider} did not return SQL output.`)
     }
 
-    const extractedSql = normalizeParquetSource(extractSqlOnly(content), activeDatasetPath)
-    const normalizedSql = bypassSqlGuards ? extractedSql : applySqlGuards(extractedSql, queryLower)
-    return enforceTopQueryLimit(normalizedSql, queryLower)
+    return extractSqlOnly(content)
   }
 
   throw new Error(`${provider} request failed after multiple attempts.`)

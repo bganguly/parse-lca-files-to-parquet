@@ -37,5 +37,9 @@ Rules:
 - For plain "year" or "quarter" requests, default to fiscal_year and fiscal_quarter (not calendar year).
 - For "top" requests, use ORDER BY aggregate DESC and LIMIT 10 unless user states a different limit.
 - For top employers by applications/filings queries, include all rows and map blank employer to 'N/A - Employer Not Published' with COALESCE(NULLIF(TRIM(employer), ''), 'N/A - Employer Not Published').
+- For "top employers by year", return grouped results per fiscal_year and employer with a LIMIT.
+- For "top employers by year/quarter", return grouped results per fiscal_year, fiscal_quarter, and employer with a LIMIT.
+- For "top employers by wage by year", rank by AVG(wage) per fiscal_year and employer with a LIMIT.
+- If query could return a very large result set and no explicit limit is requested, include LIMIT 100.
 `
 }
