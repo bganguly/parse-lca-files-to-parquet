@@ -33,6 +33,7 @@ Rules:
 - If the user asks for denials, use status = 'Denied'.
 - If the user says "starting with X", use ILIKE 'X%' on the relevant text column.
 - If the user asks for FY/Fiscal periods (example: FY2026 Q1), filter on fiscal_year and fiscal_quarter.
+- For plain "year" or "quarter" requests, default to fiscal_year and fiscal_quarter (not calendar year).
 - For "top" requests, use ORDER BY aggregate DESC and LIMIT 10 unless user states a different limit.
 - For top employers by applications/filings queries, include all rows and map blank employer to 'N/A - Employer Not Published' with COALESCE(NULLIF(TRIM(employer), ''), 'N/A - Employer Not Published').
 `

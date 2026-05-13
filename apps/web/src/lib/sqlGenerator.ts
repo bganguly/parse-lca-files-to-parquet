@@ -61,7 +61,7 @@ function extractCalendarYearFilter(queryLower: string) {
   }
 
   const yearMatch = queryLower.match(/(20\d{2})/)
-  return yearMatch ? ` AND year = ${yearMatch[1]}` : ''
+  return yearMatch ? ` AND fiscal_year = ${yearMatch[1]}` : ''
 }
 
 function extractFiscalFilter(queryLower: string) {
@@ -174,18 +174,18 @@ function buildTopEmployersByYearSql(queryLower: string) {
 
   return `WITH ranked AS (
   SELECT
-    year,
+    fiscal_year,
     ${employerExpr} AS employer,
     COUNT(*) AS applications,
-    ROW_NUMBER() OVER (PARTITION BY year ORDER BY COUNT(*) ${orderDirection}) AS rank_in_year
+    ROW_NUMBER() OVER (PARTITION BY fiscal_year ORDER BY COUNT(*) ${orderDirection}) AS rank_in_year
   FROM h1b_raw
   WHERE 1=1${employerPrefixFilter}
-  GROUP BY year, 2
+  GROUP BY fiscal_year, 2
 )
-SELECT year, employer, applications
+SELECT fiscal_year, employer, applications
 FROM ranked
 WHERE rank_in_year <= ${requestedLimit}
-ORDER BY year, applications ${orderDirection}, employer`
+ORDER BY fiscal_year, applications ${orderDirection}, employer`
 }
 
 function buildTopEmployersByYearQuarterSql(queryLower: string) {
@@ -196,19 +196,19 @@ function buildTopEmployersByYearQuarterSql(queryLower: string) {
 
   return `WITH ranked AS (
   SELECT
-    year,
-    fiscal_quarter AS quarter,
+    fiscal_year,
+    fiscal_quarter,
     ${employerExpr} AS employer,
     COUNT(*) AS applications,
-    ROW_NUMBER() OVER (PARTITION BY year, fiscal_quarter ORDER BY COUNT(*) ${orderDirection}) AS rank_in_period
+    ROW_NUMBER() OVER (PARTITION BY fiscal_year, fiscal_quarter ORDER BY COUNT(*) ${orderDirection}) AS rank_in_period
   FROM h1b_raw
   WHERE 1=1${employerPrefixFilter}
-  GROUP BY year, fiscal_quarter, 3
+  GROUP BY fiscal_year, fiscal_quarter, 3
 )
-SELECT year, quarter, employer, applications
+SELECT fiscal_year, fiscal_quarter, employer, applications
 FROM ranked
 WHERE rank_in_period <= ${requestedLimit}
-ORDER BY year, quarter, applications ${orderDirection}, employer`
+ORDER BY fiscal_year, fiscal_quarter, applications ${orderDirection}, employer`
 }
 
 function extractYearOrFiscalFilter(queryLower: string) {
@@ -218,7 +218,7 @@ function extractYearOrFiscalFilter(queryLower: string) {
   }
 
   const yearMatch = queryLower.match(/(20\d{2})/)
-  return yearMatch ? ` AND (year = ${yearMatch[1]} OR fiscal_year = ${yearMatch[1]})` : ''
+  return yearMatch ? ` AND fiscal_year = ${yearMatch[1]}` : ''
 }
 
 function buildCountIntentSql(queryLower: string) {
@@ -246,7 +246,7 @@ function buildCountsByYearSql(queryLower: string) {
   const fiscalPeriod = parseFiscalPeriod(queryLower)
 
   if (fiscalPeriod) {
-    return `SELECT fiscal_year AS year, COUNT(*) AS total_h1b_records
+    return `SELECT fiscal_year, COUNT(*) AS total_h1b_records
 FROM h1b_raw
 WHERE fiscal_year = ${fiscalPeriod.fiscalYear}${
       fiscalPeriod.fiscalQuarter !== undefined
@@ -257,10 +257,10 @@ GROUP BY fiscal_year
 ORDER BY fiscal_year`
   }
 
-  return `SELECT year, COUNT(*) AS total_h1b_records
+  return `SELECT fiscal_year, COUNT(*) AS total_h1b_records
 FROM h1b_raw
-GROUP BY year
-ORDER BY year`
+GROUP BY fiscal_year
+ORDER BY fiscal_year`
 }
 
 function buildTopEmployersApplicationsSql(queryLower: string) {
@@ -300,21 +300,22 @@ LIMIT ${requestedLimit}`
 
 function buildTopEmployersApprovalsByYearSql(queryLower: string) {
   const requestedLimit = parseRequestedLimit(queryLower) ?? 10
+  const orderDirection = /\bbottom\b/i.test(queryLower) ? 'ASC' : 'DESC'
 
   return `WITH ranked AS (
   SELECT
-    year,
+    fiscal_year,
     employer,
     COUNT(*) AS approvals,
-    ROW_NUMBER() OVER (PARTITION BY year ORDER BY COUNT(*) DESC) AS rank_in_year
+    ROW_NUMBER() OVER (PARTITION BY fiscal_year ORDER BY COUNT(*) ${orderDirection}) AS rank_in_year
   FROM h1b_raw
   WHERE status LIKE 'Certified%'
-  GROUP BY year, employer
+  GROUP BY fiscal_year, employer
 )
-SELECT year, employer, approvals
+SELECT fiscal_year, employer, approvals
 FROM ranked
 WHERE rank_in_year <= ${requestedLimit}
-ORDER BY year, approvals DESC, employer`
+ORDER BY fiscal_year, approvals ${orderDirection}, employer`
 }
 
 function applyStartsWithEmployerConstraint(sql: string, queryLower: string) {
@@ -572,14 +573,14 @@ ORDER BY approvals DESC`
   }
 
   if (q.includes('approval rate') && q.includes('year')) {
-    return `SELECT year,
+    return `SELECT fiscal_year,
   ROUND(
     100.0 * SUM(CASE WHEN status LIKE 'Certified%' THEN 1 ELSE 0 END) / COUNT(*),
     2
   ) AS approval_rate
 FROM h1b_raw
-GROUP BY year
-ORDER BY year`
+GROUP BY fiscal_year
+ORDER BY fiscal_year`
   }
 
   if (q.includes('average') && q.includes('wage')) {

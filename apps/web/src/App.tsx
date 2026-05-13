@@ -174,6 +174,7 @@ function App() {
             Natural language to SQL to DuckDB execution on raw CSV/Parquet data, then structured
             table and chart output.
           </p>
+          <p className="subtitle">Fiscal quarter mapping: Q1 Oct-Dec, Q2 Jan-Mar, Q3 Apr-Jun, Q4 Jul-Sep.</p>
         </div>
       </section>
 
