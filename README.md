@@ -33,7 +33,7 @@ npm run infra:up -- [bucket-name] [aws-region] [version-tag]
 Example with all three values:
 
 ```bash
-npm run infra:up -- h1b-lca-parquet-prod us-east-1 full_multi_fiscal_noempty_countrynull_20260512
+npm run infra:up -- h1b-lca-parquet-prod us-east-1 full_multi_fiscal_noempty_countrynull_$(date +%Y%m%d)
 ```
 
 - If `bucket-name` is omitted, a unique bucket is created automatically.
@@ -85,7 +85,7 @@ npm run upload:s3:parquet -- <your-bucket-name> <aws-region> [version-tag]
 Example with all three values:
 
 ```bash
-npm run upload:s3:parquet -- h1b-lca-parquet-prod us-east-1 full_multi_fiscal_noempty_countrynull_20260512
+npm run upload:s3:parquet -- h1b-lca-parquet-prod us-east-1 full_multi_fiscal_noempty_countrynull_$(date +%Y%m%d)
 ```
 
 If `version-tag` is provided, the script also prints cache-busted URLs with `?v=<version-tag>`.
