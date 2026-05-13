@@ -2,22 +2,13 @@
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <s3-bucket-name> [version-tag] [region]"
+  echo "Usage: $0 <s3-bucket-name> [region] [version-tag]"
   exit 1
 fi
 
 BUCKET="$1"
-SECOND_ARG="${2:-}"
-THIRD_ARG="${3:-}"
-
-# Prefer new order: [version-tag] [region], but accept legacy [region] [version-tag].
-if [[ "$SECOND_ARG" =~ ^[a-z]{2}-[a-z]+-[0-9]+$ ]]; then
-  REGION="$SECOND_ARG"
-  VERSION_TAG="$THIRD_ARG"
-else
-  VERSION_TAG="$SECOND_ARG"
-  REGION="${THIRD_ARG:-us-east-1}"
-fi
+REGION="${2:-us-east-1}"
+VERSION_TAG="${3:-}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PARQUET_DIR="$ROOT_DIR/data/parquet"
 DATASET_STEM="dol_lca_h1b_fy2020_q1_to_fy2026_q1"

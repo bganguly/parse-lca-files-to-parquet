@@ -5,10 +5,10 @@ Pipeline-only repository that downloads official H-1B LCA disclosures, normalize
 ## What This Repo Does
 
 - Downloads DOL LCA quarterly XLSX files.
-- Downloads USCIS H-1B Employer Data Hub CSV.
 - Normalizes DOL records into a combined CSV dataset.
 - Builds both single-file parquet and year-partitioned parquet.
 - Uploads parquet outputs to S3.
+- Builds a local-only employer-to-possible-country parquet mapping (heuristic).
 
 ## Prerequisites
 
@@ -28,6 +28,12 @@ Default goal (recommended): build and upload parquet to S3 in one flow:
 
 ```bash
 npm run infra:up -- [bucket-name] [aws-region] [version-tag]
+```
+
+Example with all three values:
+
+```bash
+npm run infra:up -- h1b-lca-parquet-prod us-east-1 full_multi_fiscal_noempty_countrynull_20260512
 ```
 
 - If `bucket-name` is omitted, a unique bucket is created automatically.
@@ -62,10 +68,24 @@ npm run fetch:official-data
 npm run build:parquet
 ```
 
+- Build local-only employer country mapping parquet (not uploaded to S3):
+
+```bash
+npm run build:employer-country-map
+```
+
+This mapping is heuristic and based on country frequencies seen in DOL rows for each employer name.
+
 - Upload parquet to S3:
 
 ```bash
 npm run upload:s3:parquet -- <your-bucket-name> <aws-region> [version-tag]
+```
+
+Example with all three values:
+
+```bash
+npm run upload:s3:parquet -- h1b-lca-parquet-prod us-east-1 full_multi_fiscal_noempty_countrynull_20260512
 ```
 
 If `version-tag` is provided, the script also prints cache-busted URLs with `?v=<version-tag>`.
@@ -93,16 +113,14 @@ npm run create:cloudfront -- <your-bucket-name> <aws-region>
 The pipeline writes to `data/`:
 
 - `data/dol_lca_h1b_fy2020_q1_to_fy2026_q1.csv`
-- `data/uscis_h1b_employer_data_hub_2023.csv`
 - `data/parquet/dol_lca_h1b_fy2020_q1_to_fy2026_q1.parquet`
 - `data/parquet/dol_lca_h1b_fy2020_q1_to_fy2026_q1_partitioned/`
+- `data/local_parquet/employer_possible_country_mapping.parquet` (local-only; not included in S3 upload sync)
 
 ## Official Data Sources
 
 - DOL LCA disclosure quarterly XLSX:
   `https://www.dol.gov/sites/dolgov/files/ETA/oflc/pdfs/LCA_Disclosure_Data_FY{FY}_Q{Q}.xlsx`
-- USCIS H-1B Employer Data Hub CSV:
-  `https://www.uscis.gov/sites/default/files/document/data/h1b_datahubexport-2023.csv`
 
 ## Parallel Fetch/Normalize Tuning
 

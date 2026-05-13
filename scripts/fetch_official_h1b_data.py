@@ -12,7 +12,6 @@ from concurrent.futures import ThreadPoolExecutor
 from openpyxl import load_workbook
 
 DOL_LCA_XLSX_URL_TEMPLATE = "https://www.dol.gov/sites/dolgov/files/ETA/oflc/pdfs/LCA_Disclosure_Data_FY{fy}_Q{quarter}.xlsx"
-USCIS_CSV_URL = "https://www.uscis.gov/sites/default/files/document/data/h1b_datahubexport-2023.csv"
 
 
 def download_file(url: str, target: pathlib.Path) -> None:
@@ -250,10 +249,6 @@ def main() -> None:
     dataset_stem = f"dol_lca_h1b_fy{args.start_fy}_q{args.start_quarter}_to_fy{args.end_fy}_q{args.end_quarter}"
 
     dol_csv_path = data_dir / f"{dataset_stem}.csv"
-    uscis_csv_path = data_dir / "uscis_h1b_employer_data_hub_2023.csv"
-
-    print("Downloading USCIS H-1B Employer Data Hub CSV...")
-    download_file(USCIS_CSV_URL, uscis_csv_path)
 
     fiscal_quarters = list(
         iter_fiscal_quarters(args.start_fy, args.start_quarter,
@@ -365,7 +360,6 @@ def main() -> None:
         source_dir.rmdir()
 
     print("Done.")
-    print(f"USCIS CSV: {uscis_csv_path}")
     print(
         f"DOL fiscal quarter range: FY{args.start_fy} Q{args.start_quarter} -> FY{args.end_fy} Q{args.end_quarter}")
     print(f"Minimum included calendar year: {args.min_calendar_year}")

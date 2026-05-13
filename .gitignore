@@ -14,7 +14,10 @@ data/**/*.csv
 data/**/*.xls
 data/**/*.xlsx
 data/parquet/
+data/local_parquet/
 data/sources/
+__pycache__/
+*.pyc
 lerna-debug.log*
 logs
 node_modules
