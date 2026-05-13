@@ -6,6 +6,7 @@ type SqlGenerationInput = {
   apiKey?: string
   model?: string
   provider?: LlmProvider
+  bypassSqlGuards?: boolean
 }
 
 const OPENAI_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions'
@@ -299,6 +300,13 @@ function resolveProvider(provider?: LlmProvider): LlmProvider {
   return provider ?? 'openai'
 }
 
+function applySqlGuards(sql: string, queryLower: string) {
+  return enforceTopEmployersByYearQuarterIntent(
+    enforceTopEmployersByYearIntent(enforceTopEmployersByWageYearIntent(sql, queryLower), queryLower),
+    queryLower,
+  )
+}
+
 export async function generateSqlFromNl(input: SqlGenerationInput) {
   const trimmedQuery = input.query.trim()
   const queryLower = trimmedQuery.toLowerCase()
@@ -313,6 +321,7 @@ export async function generateSqlFromNl(input: SqlGenerationInput) {
 
   const provider = resolveProvider(input.provider)
   const model = input.model || 'gpt-4o-mini'
+  const bypassSqlGuards = input.bypassSqlGuards ?? false
   ensureModelCompatible(provider, model)
 
   const prompt = `You are a SQL expert. Given this schema:\n${input.schemaPrompt}\n\nConvert this question to SQL (DuckDB syntax, reading from parquet on S3):\n"${trimmedQuery}"\n\nReturn ONLY the SQL query, nothing else.`
@@ -360,13 +369,8 @@ export async function generateSqlFromNl(input: SqlGenerationInput) {
         throw new Error('anthropic did not return SQL output.')
       }
 
-      return enforceTopEmployersByYearQuarterIntent(
-        enforceTopEmployersByYearIntent(
-          enforceTopEmployersByWageYearIntent(extractSqlOnly(content), queryLower),
-          queryLower,
-        ),
-        queryLower,
-      )
+      const extractedSql = extractSqlOnly(content)
+      return bypassSqlGuards ? extractedSql : applySqlGuards(extractedSql, queryLower)
     }
 
     const data = (await response.json()) as {
@@ -378,13 +382,8 @@ export async function generateSqlFromNl(input: SqlGenerationInput) {
       throw new Error(`${provider} did not return SQL output.`)
     }
 
-    return enforceTopEmployersByYearQuarterIntent(
-      enforceTopEmployersByYearIntent(
-        enforceTopEmployersByWageYearIntent(extractSqlOnly(content), queryLower),
-        queryLower,
-      ),
-      queryLower,
-    )
+    const extractedSql = extractSqlOnly(content)
+    return bypassSqlGuards ? extractedSql : applySqlGuards(extractedSql, queryLower)
   }
 
   throw new Error(`${provider} request failed after multiple attempts.`)
