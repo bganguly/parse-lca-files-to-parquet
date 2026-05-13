@@ -76,7 +76,6 @@
           <select id="provider">
             <option value="openai">openai</option>
             <option value="anthropic">anthropic</option>
-            <option value="openrouter">openrouter</option>
           </select>
         </label>
         <label>
@@ -85,12 +84,12 @@
         </label>
         <label>
           Model
-          <input id="model" type="text" value="gpt-4o-mini" required />
-        </label>
-        <label>
-          Schema Prompt
-          <textarea id="schema" rows="7" required>Table: s3://your-bucket/data/*.parquet
-Columns: employer (string), year (int), wage (float), status (string), fiscal_year (int), fiscal_quarter (int)</textarea>
+          <select id="model">
+            <option value="gpt-4o-mini">gpt-4o-mini</option>
+            <option value="gpt-4o">gpt-4o</option>
+            <option value="gpt-4.1">gpt-4.1</option>
+            <option value="o4-mini">o4-mini</option>
+          </select>
         </label>
         <label>
           User Query
@@ -107,11 +106,17 @@ Columns: employer (string), year (int), wage (float), status (string), fiscal_ye
 
     <script>
       const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
-      const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
       const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
+      const DEFAULT_SCHEMA = `Table: h1b_raw
+Columns: employer (string), job_title (string), country (string), work_location (string), wage (float), status (string), year (int), fiscal_year (int), fiscal_quarter (int)`;
 
-      function makePrompt(schema, query) {
-        return `You are a SQL expert. Given this schema:\n${schema}\n\nConvert this question to SQL (DuckDB syntax, reading from parquet on S3):\n"${query}"\n\nReturn ONLY the SQL query, nothing else.`;
+      const MODELS_BY_PROVIDER = {
+        openai: ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1', 'o4-mini'],
+        anthropic: ['claude-3-5-sonnet-latest', 'claude-3-7-sonnet-latest', 'claude-sonnet-4-20250514'],
+      };
+
+      function makePrompt(query) {
+        return `You are a SQL expert. Given this schema:\n${DEFAULT_SCHEMA}\n\nConvert this question to SQL (DuckDB syntax):\n"${query}"\n\nReturn ONLY the SQL query, nothing else.`;
       }
 
       function extractSql(text) {
@@ -150,18 +155,12 @@ Columns: employer (string), year (int), wage (float), status (string), fiscal_ye
           return extractSql(text || '');
         }
 
-        const url = provider === 'openrouter' ? OPENROUTER_URL : OPENAI_URL;
         const headers = {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
         };
 
-        if (provider === 'openrouter') {
-          headers['HTTP-Referer'] = 'http://localhost';
-          headers['X-Title'] = 'Plain HTML LLM Request Form';
-        }
-
-        const response = await fetch(url, {
+        const response = await fetch(OPENAI_URL, {
           method: 'POST',
           headers,
           body: JSON.stringify({
@@ -189,7 +188,6 @@ Columns: employer (string), year (int), wage (float), status (string), fiscal_ye
         const provider = document.getElementById('provider').value;
         const apiKey = document.getElementById('apiKey').value.trim();
         const model = document.getElementById('model').value.trim();
-        const schema = document.getElementById('schema').value.trim();
         const query = document.getElementById('query').value.trim();
         const output = document.getElementById('output');
 
@@ -197,7 +195,7 @@ Columns: employer (string), year (int), wage (float), status (string), fiscal_ye
         output.classList.remove('error');
 
         try {
-          const prompt = makePrompt(schema, query);
+          const prompt = makePrompt(query);
           const sql = await request(provider, apiKey, model, prompt);
           output.textContent = sql || 'No SQL output returned.';
         } catch (error) {
@@ -205,6 +203,26 @@ Columns: employer (string), year (int), wage (float), status (string), fiscal_ye
           output.classList.add('error');
         }
       });
+
+      const providerSelect = document.getElementById('provider');
+      const modelSelect = document.getElementById('model');
+
+      function renderModelOptions(provider) {
+        const models = MODELS_BY_PROVIDER[provider] || [];
+        modelSelect.innerHTML = '';
+        models.forEach((model) => {
+          const option = document.createElement('option');
+          option.value = model;
+          option.textContent = model;
+          modelSelect.appendChild(option);
+        });
+      }
+
+      providerSelect.addEventListener('change', (event) => {
+        renderModelOptions(event.target.value);
+      });
+
+      renderModelOptions(providerSelect.value);
     </script>
   </body>
 </html>
