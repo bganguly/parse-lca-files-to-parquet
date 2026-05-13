@@ -275,7 +275,7 @@ function buildTopWagesSql(queryLower: string) {
     periodFilter = extractCalendarYearFilter(queryLower)
   }
 
-  return `SELECT employer, job_title, work_location, country, status, fiscal_year, fiscal_quarter, wage
+  return `SELECT employer, job_title, work_location, status, fiscal_year, fiscal_quarter, wage
 FROM h1b_raw
 WHERE wage IS NOT NULL${periodFilter}${employerPrefixFilter}
 ${topStatusFilter}
