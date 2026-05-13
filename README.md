@@ -34,6 +34,22 @@ Run guidance:
 > - If this is your first time working on this repo, use the usual 3-args flow (`bucket-name`, `aws-region`, `version-tag`).
 > - **Incremental fetching is automatic.** `data/manifest.json` tracks the last processed fiscal quarter. On every run, the fetch script reads the manifest and only downloads quarters that are newer than the last recorded one — no manual range args needed.
 
+To rebuild everything from scratch (re-download all quarters, regenerate all parquet):
+
+```bash
+# 1. Reset the manifest to before FY2020 Q1 so the fetch script re-downloads all quarters
+echo '{"start_fy":2020,"start_quarter":1,"last_fy":2019,"last_quarter":4,"updated_at":"'$(date +%Y-%m-%d)'"}' > data/manifest.json
+
+# 2. Delete any existing combined CSV and parquet outputs
+rm -f data/dol_lca_h1b_combined.csv
+rm -rf data/parquet/
+
+# 3. Run the full pipeline
+npm run infra:up -- [bucket-name] [aws-region] [version-tag]
+```
+
+> **Note:** After the run completes, `data/manifest.json` will be updated automatically to the latest quarter. Commit it to git to preserve the new state.
+
 Default goal (recommended): build and upload parquet to S3 in one flow:
 
 ```bash
