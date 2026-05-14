@@ -201,7 +201,8 @@ def fetch_xlsx_preview(fy: int, quarter: int, n_rows: int) -> tuple[list[str], l
     wb = load_workbook(filename=tmp_path, read_only=True, data_only=True)
     ws = wb.worksheets[0]
     rows_iter = ws.iter_rows(values_only=True)
-    raw_header = [str(v).strip() if v is not None else "" for v in next(rows_iter)]
+    raw_header = [
+        str(v).strip() if v is not None else "" for v in next(rows_iter)]
 
     header_upper = [h.upper() for h in raw_header]
     col_indices: list[int] = []
@@ -218,7 +219,8 @@ def fetch_xlsx_preview(fy: int, quarter: int, n_rows: int) -> tuple[list[str], l
     for i, row in enumerate(rows_iter):
         if i >= n_rows:
             break
-        data_rows.append([row[idx] if idx < len(row) else None for idx in col_indices])
+        data_rows.append([row[idx] if idx < len(
+            row) else None for idx in col_indices])
 
     wb.close()
     tmp_path.unlink(missing_ok=True)
@@ -231,7 +233,8 @@ def read_csv_preview(csv_path: pathlib.Path, n_rows: int) -> tuple[list[str], li
     available = [c for c in NORMALIZED_DISPLAY_COLS if c in table.schema.names]
     table = table.select(available)
     headers = list(table.schema.names)
-    rows = [[table[col][i].as_py() for col in headers] for i in range(table.num_rows)]
+    rows = [[table[col][i].as_py() for col in headers]
+            for i in range(table.num_rows)]
     return headers, rows
 
 
@@ -243,7 +246,8 @@ def read_parquet_preview(parquet_path: pathlib.Path, n_rows: int) -> tuple[list[
     table = pq.read_table(parquet_path, columns=available)
     table = table.slice(0, n_rows)
     headers = list(table.schema.names)
-    rows = [[table[col][i].as_py() for col in headers] for i in range(table.num_rows)]
+    rows = [[table[col][i].as_py() for col in headers]
+            for i in range(table.num_rows)]
     return headers, rows
 
 
@@ -296,7 +300,8 @@ def main() -> None:
     }
     if not args.skip_remote:
         try:
-            stage1["headers"], stage1["rows"] = fetch_xlsx_preview(fy, quarter, args.rows)
+            stage1["headers"], stage1["rows"] = fetch_xlsx_preview(
+                fy, quarter, args.rows)
             print("  OK")
         except Exception as exc:
             print(f"  Warning: {exc}")
@@ -314,7 +319,8 @@ def main() -> None:
         "placeholder": "Run  npm run fetch:official-data\nto generate this file.",
     }
     if csv_path.exists():
-        stage2["headers"], stage2["rows"] = read_csv_preview(csv_path, args.rows)
+        stage2["headers"], stage2["rows"] = read_csv_preview(
+            csv_path, args.rows)
         print("  OK")
     else:
         print(f"  Not found: {csv_path.relative_to(ROOT)}")
@@ -330,7 +336,8 @@ def main() -> None:
         "placeholder": "Run  npm run build:parquet\nto generate this file.",
     }
     if parquet_path.exists():
-        stage3["headers"], stage3["rows"] = read_parquet_preview(parquet_path, args.rows)
+        stage3["headers"], stage3["rows"] = read_parquet_preview(
+            parquet_path, args.rows)
         print("  OK")
     else:
         print(f"  Not found: {parquet_path.relative_to(ROOT)}")
