@@ -16,19 +16,32 @@ from openpyxl import load_workbook
 DOL_LCA_XLSX_URL_TEMPLATE = "https://www.dol.gov/sites/dolgov/files/ETA/oflc/pdfs/LCA_Disclosure_Data_FY{fy}_Q{quarter}.xlsx"
 
 
-def download_file(url: str, target: pathlib.Path) -> None:
+def download_file(url: str, target: pathlib.Path) -> bool:
+    """Download url to target. Returns True on success, False if the file does not exist (404)."""
     target.parent.mkdir(parents=True, exist_ok=True)
-    subprocess.run(
+    result = subprocess.run(
         [
             "curl",
             "-L",
             "--fail",
+            "-s",
+            "-w",
+            "%{http_code}",
             url,
             "-o",
             str(target),
         ],
-        check=True,
+        capture_output=True,
+        text=True,
     )
+    if result.returncode != 0:
+        if target.exists():
+            target.unlink()
+        http_code = result.stdout.strip()
+        if http_code in ("404", "403", ""):
+            return False
+        raise RuntimeError(f"Failed to download {url} (HTTP {http_code})")
+    return True
 
 
 def as_text(value) -> str:
@@ -351,12 +364,23 @@ def main() -> None:
     print(
         f"Downloading {len(quarter_jobs)} DOL quarter files with parallel downloads={args.parallel_downloads}...")
     with ThreadPoolExecutor(max_workers=args.parallel_downloads) as executor:
-        futures = [
-            executor.submit(download_file, quarter_url, quarter_xlsx)
-            for _, _, quarter_xlsx, quarter_url in quarter_jobs
-        ]
-        for future in futures:
-            future.result()
+        futures = {
+            executor.submit(download_file, quarter_url, quarter_xlsx): (fy, quarter, quarter_xlsx, quarter_url)
+            for fy, quarter, quarter_xlsx, quarter_url in quarter_jobs
+        }
+        available_jobs: list[tuple[int, int, pathlib.Path, str]] = []
+        for future, job in futures.items():
+            fy, quarter, quarter_xlsx, quarter_url = job
+            if future.result():
+                available_jobs.append(job)
+            else:
+                print(f"[skip] FY{fy} Q{quarter} not yet published on DOL ({quarter_url})")
+
+    if not available_jobs:
+        print("No new DOL quarterly files are available yet. Already up to date.")
+        return
+
+    quarter_jobs = available_jobs
 
     temp_jobs: list[tuple[int, int, pathlib.Path, pathlib.Path]] = []
     for fy, quarter, quarter_xlsx, _quarter_url in quarter_jobs:
