@@ -84,14 +84,10 @@ The pipeline writes to `data/`:
 
 ## Parallel Fetch/Normalize Tuning
 
-Conservative defaults for older 16 GB Macs:
-
 ```bash
+# Conservative defaults (older 16 GB Macs)
 python3 scripts/fetch_official_h1b_data.py --parallel-downloads 4 --parallel-normalize 2
-```
 
-Example for faster ingest:
-
-```bash
+# Faster ingest
 python3 scripts/fetch_official_h1b_data.py --parallel-downloads 6 --parallel-normalize 3
 ```
