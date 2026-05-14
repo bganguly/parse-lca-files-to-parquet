@@ -11,7 +11,7 @@ REGION="${2:-us-east-1}"
 VERSION_TAG="${3:-}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PARQUET_DIR="$ROOT_DIR/data/parquet"
-DATASET_STEM="dol_lca_h1b_fy2020_q1_to_fy2026_q1"
+DATASET_STEM="dol_lca_h1b_combined"
 SINGLE_PARQUET_URL="https://$BUCKET.s3.$REGION.amazonaws.com/data/parquet/$DATASET_STEM.parquet"
 PARTITION_ROOT_URL="https://$BUCKET.s3.$REGION.amazonaws.com/data/parquet/${DATASET_STEM}_partitioned/year=*/part-*.parquet"
 
