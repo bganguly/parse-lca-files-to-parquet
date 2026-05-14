@@ -31,6 +31,13 @@ Run guidance:
 
 > [!IMPORTANT]
 > - **First time:** Run the full 3-args flow below. This downloads all quarters from FY2020, builds parquet, creates the S3 bucket, and uploads. The manifest is written automatically at the end — commit it.
+>   ```bash
+>   npm run infra:up -- [bucket-name] [aws-region] [version-tag]
+>   ```
+>   Example: `npm run infra:up -- h1b-lca-parquet-prod us-east-1 full_multi_fiscal_noempty_countrynull_$(date +%Y%m%d)`
+>   - If `bucket-name` is omitted, a unique bucket is created automatically.
+>   - If `version-tag` is provided, cache-busted URLs are also printed.
+>   - Typical end-to-end runtime is about 20-25 minutes. Temporary XLSX and intermediate CSV files are removed automatically.
 > - **Incremental (2nd+ run, new quarters only):** Just run `npm run infra:up` again with the same args. The fetch script reads `data/manifest.json` and only downloads quarters newer than the last recorded one — no manual range args needed.
 > - **Full rebuild from scratch (2nd+ run):** Reset the manifest, delete existing outputs, then run infra:up:
 >   ```bash
@@ -39,23 +46,6 @@ Run guidance:
 >   npm run infra:up -- [bucket-name] [aws-region] [version-tag]
 >   ```
 >   Commit the updated manifest after the run.
-
-Build and upload parquet to S3:
-
-```bash
-npm run infra:up -- [bucket-name] [aws-region] [version-tag]
-```
-
-Example with all three values:
-
-```bash
-npm run infra:up -- h1b-lca-parquet-prod us-east-1 full_multi_fiscal_noempty_countrynull_$(date +%Y%m%d)
-```
-
-- If `bucket-name` is omitted, a unique bucket is created automatically.
-- If `version-tag` is provided, cache-busted URLs are also printed.
-
-Typical end-to-end runtime is about 20-25 minutes (depending on network and machine). Temporary XLSX and intermediate CSV files are removed automatically after each run.
 
 ## Commands
 
