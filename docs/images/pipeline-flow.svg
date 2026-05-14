@@ -22,8 +22,6 @@
   <text x="472" y="158" font-size="24" font-family="Arial, Helvetica, sans-serif" fill="#162133" font-weight="bold">Local Download + Processing</text>
   <text x="472" y="192" font-size="18" font-family="Arial, Helvetica, sans-serif" fill="#162133">fetch_official_h1b_data.py</text>
   <text x="472" y="220" font-size="18" font-family="Arial, Helvetica, sans-serif" fill="#162133">build_parquet_from_official_csv.py</text>
-  <text x="472" y="248" font-size="18" font-family="Arial, Helvetica, sans-serif" fill="#162133">(optional) build_employer_country_mapping_parquet.py</text>
-  <text x="472" y="276" font-size="16" font-family="Arial, Helvetica, sans-serif" fill="#162133">(local mapping parquet only)</text>
 
   <rect x="960" y="140" rx="18" ry="18" width="310" height="220" fill="#ffffff" stroke="#243a5c" stroke-width="4"/>
   <text x="982" y="178" font-size="24" font-family="Arial, Helvetica, sans-serif" fill="#162133" font-weight="bold">Upload to S3</text>
@@ -41,7 +39,4 @@
   <line x1="880" y1="250" x2="960" y2="250" stroke="#2a58a5" stroke-width="8" marker-end="url(#arrow)"/>
   <line x1="1270" y1="250" x2="1320" y2="250" stroke="#2a58a5" stroke-width="8" marker-end="url(#arrow)"/>
 
-  <text x="30" y="470" font-size="18" font-family="Arial, Helvetica, sans-serif" fill="#4c5f7a">
-    Note: employer_possible_country_mapping.parquet stays local (data/local_parquet) and is not uploaded by S3 sync.
-  </text>
 </svg>

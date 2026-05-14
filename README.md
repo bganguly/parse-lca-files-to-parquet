@@ -8,7 +8,6 @@ Pipeline-only repository that downloads official H-1B LCA disclosures, normalize
 - Normalizes DOL records into a combined CSV dataset.
 - Builds both single-file parquet and year-partitioned parquet.
 - Uploads parquet outputs to S3.
-- Optionally builds a local-only employer-to-possible-country parquet mapping (heuristic).
 
 ## Pipeline Diagram
 
@@ -94,14 +93,6 @@ npm run fetch:official-data
 npm run build:parquet
 ```
 
-- Optional: build local-only employer country mapping parquet (not uploaded to S3):
-
-```bash
-npm run build:employer-country-map
-```
-
-This mapping is heuristic and based on country frequencies seen in DOL rows for each employer name.
-
 - Upload parquet to S3:
 
 ```bash
@@ -142,7 +133,6 @@ The pipeline writes to `data/`:
 - `data/dol_lca_h1b_combined.csv` — combined normalized CSV (gitignored; rebuilt on each run)
 - `data/parquet/dol_lca_h1b_combined.parquet`
 - `data/parquet/dol_lca_h1b_combined_partitioned/`
-- `data/local_parquet/employer_possible_country_mapping.parquet` (local-only; not included in S3 upload sync)
 
 ## Official Data Sources
 
