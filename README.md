@@ -29,7 +29,6 @@ python3 -m pip install --user openpyxl pyarrow
 
 Run guidance:
 
-> [!IMPORTANT]
 > - **First time:** Run the full 3-args flow below. This downloads all quarters from FY2020, builds parquet, creates the S3 bucket, and uploads. The manifest is written automatically at the end — commit it.
 >   ```bash
 >   npm run infra:up -- [bucket-name] [aws-region] [version-tag]
