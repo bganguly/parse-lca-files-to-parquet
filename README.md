@@ -33,7 +33,10 @@ Run guidance:
 >   ```bash
 >   npm run infra:up -- [bucket-name] [aws-region] [version-tag]
 >   ```
->   Example: `npm run infra:up -- h1b-lca-parquet-prod us-east-1 full_multi_fiscal_noempty_countrynull_$(date +%Y%m%d)`
+>   Example:
+>   ```bash
+>   npm run infra:up -- h1b-lca-parquet-prod us-east-1 full_multi_fiscal_noempty_countrynull_$(date +%Y%m%d)
+>   ```
 >   - If `bucket-name` is omitted, a unique bucket is created automatically.
 >   - If `version-tag` is provided, cache-busted URLs are also printed.
 >   - Typical end-to-end runtime is about 20-25 minutes. Temporary XLSX and intermediate CSV files are removed automatically.
