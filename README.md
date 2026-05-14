@@ -81,7 +81,7 @@ The pipeline writes to `data/`:
 
 - DOL LCA disclosure quarterly XLSX:
   `https://www.dol.gov/sites/dolgov/files/ETA/oflc/pdfs/LCA_Disclosure_Data_FY{FY}_Q{Q}.xlsx`  
-  e.g. `LCA_Disclosure_Data_FY2026_Q1.xlsx`
+  e.g. [LCA_Disclosure_Data_FY2026_Q1.xlsx](https://www.dol.gov/sites/dolgov/files/ETA/oflc/pdfs/LCA_Disclosure_Data_FY2026_Q1.xlsx)
 
 ## Parallel Fetch/Normalize Tuning
 
