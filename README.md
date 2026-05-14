@@ -86,12 +86,6 @@ npm run infra:up -- [bucket-name] [aws-region] [version-tag]
 npm run infra:down -- [bucket-name] [aws-region]
 ```
 
-- Optional CloudFront in front of S3:
-
-```bash
-npm run create:cloudfront -- <your-bucket-name> <aws-region>
-```
-
 ## Data Layout
 
 The pipeline writes to `data/`:
